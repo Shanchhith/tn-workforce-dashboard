@@ -1,0 +1,163 @@
+==============================================================================
+TAMIL NADU MEDICAL WORKFORCE: SUPPLY PROJECTION TO 2050
+==============================================================================
+
+MODEL VALIDATION (parameters were fitted, then tested out-of-sample)
+------------------------------------------------------------------------------
+  PG pipeline: seats(2021) x fill 0.978 x completion 0.95 = 2,707 predicted vs 2,717 observed pass-outs (2024)
+  Register cross-check, IMR scrape vs TNMC workbook (MBBS + FMG):
+     2020:  IMR   9,049   TNMC   9,049   diff  0.00%
+     2021:  IMR   9,326   TNMC   9,326   diff  0.00%
+     2022:  IMR  11,654   TNMC  11,654   diff  0.00%
+     2023:  IMR  10,992   TNMC  10,992   diff  0.00%
+     2024:  IMR  11,149   TNMC  11,149   diff  0.00%
+
+  External entrants (deemed universities + out-of-state returnees), residual 2021-25:
+     4,583, 6,328, 4,961, 5,456, 5,577   -> flat at 5,381/yr
+
+  Private MBBS logistic fits (ceiling K -> growth r, inflection year):
+     K= 8,000:  r=0.226   inflection=2023.5
+     K=10,000:  r=0.204   inflection=2025.5
+     K=12,000:  r=0.188   inflection=2027.2
+
+
+HEADLINE PROJECTIONS
+------------------------------------------------------------------------------
+
+  [Constrained]
+                                      2025        2030        2040        2050
+    Government MBBS seats            5,200       5,200       5,200       5,200
+    Private MBBS seats               4,750       6,503       7,812       7,980
+    Total MBBS seats                 9,950      11,703      13,012      13,180
+    PG (MD/MS/Dip) seats             5,534       6,847       9,109       9,226
+    Entrants to register            12,445      16,086      19,443      20,017
+    Active doctors                 151,248     211,758     351,710     488,238
+    Doctors per 10,000                19.6        27.2        45.2        64.2
+    Active specialists              63,790      91,690     159,757     227,848
+    WHO need (doctors)              86,015      86,747      86,622      84,576
+    Surplus vs WHO need             65,233     125,010     265,088     403,662
+
+  [Status quo]
+                                      2025        2030        2040        2050
+    Government MBBS seats            5,200       5,600       6,000       6,000
+    Private MBBS seats               4,750       7,146       9,506       9,933
+    Total MBBS seats                 9,950      12,746      15,506      15,933
+    PG (MD/MS/Dip) seats             5,534       6,847      10,062      11,153
+    Entrants to register            12,445      16,086      21,227      22,532
+    Active doctors                 151,248     211,758     360,393     517,657
+    Doctors per 10,000                19.6        27.2        46.3        68.1
+    Active specialists              63,790      91,690     159,860     240,513
+    WHO need (doctors)              86,015      86,747      86,622      84,576
+    Surplus vs WHO need             65,233     125,010     273,772     433,082
+
+  [Policy push]
+                                      2025        2030        2040        2050
+    Government MBBS seats            5,200       6,200       8,250       9,250
+    Private MBBS seats               4,750       7,517      10,999      11,836
+    Total MBBS seats                 9,950      13,717      19,249      21,086
+    PG (MD/MS/Dip) seats             5,534       6,847      10,062      13,277
+    Entrants to register            12,445      16,086      23,093      27,065
+    Active doctors                 151,248     211,758     368,716     557,109
+    Doctors per 10,000                19.6        27.2        47.4        73.3
+    Active specialists              63,790      91,690     159,860     243,279
+    WHO need (doctors)              86,015      86,747      86,622      84,576
+    Surplus vs WHO need             65,233     125,010     282,095     472,533
+
+
+ANNUAL EXITS, retirements, deaths and migration (status-quo scenario)
+------------------------------------------------------------------------------
+    Year     Retire   Deaths  Migration    Total  Entrants       Net   Exit%  Replace
+    2020        706      296        887    1,888     9,049     7,161   1.77%      4.8x
+    2021        715      308        965    1,988     9,326     7,338   1.74%      4.7x
+    2022        759      321      1,046    2,125    11,654     9,529   1.72%      5.5x
+    2023        741      335      1,153    2,229    10,992     8,763   1.68%      4.9x
+    2024        775      349      1,249    2,373    11,149     8,776   1.68%      4.7x
+    2025        782      362      1,345    2,489    12,445     9,956   1.65%      5.0x
+    2026        794      375      1,456    2,625    12,869    10,244   1.63%      4.9x
+    2027        890      391      1,573    2,855    14,983    12,128   1.64%      5.2x
+    2028        827      410      1,713    2,950    15,580    12,630   1.58%      5.3x
+    2029        827      429      1,855    3,110    15,821    12,711   1.56%      5.1x
+    2030        844      450      1,993    3,288    16,086    12,798   1.55%      4.9x
+    2031        854      473      2,133    3,460    16,635    13,175   1.54%      4.8x
+    2032        976      493      2,274    3,743    17,378    13,635   1.57%      4.6x
+    2033        951      519      2,421    3,892    18,074    14,182   1.54%      4.6x
+    2034        924      546      2,568    4,039    18,666    14,627   1.51%      4.6x
+    2035        946      572      2,717    4,235    19,154    14,919   1.50%      4.5x
+    2036        959      597      2,865    4,421    19,660    15,239   1.49%      4.4x
+    2037      1,046      626      3,017    4,689    20,131    15,442   1.50%      4.3x
+    2038      1,103      659      3,160    4,922    20,518    15,596   1.50%      4.2x
+    2039      1,080      694      3,302    5,076    20,915    15,839   1.47%      4.1x
+    2040      1,070      733      3,444    5,247    21,227    15,980   1.46%      4.0x
+    2041      1,057      774      3,574    5,405    21,551    16,147   1.44%      4.0x
+    2042      1,131      814      3,703    5,649    21,748    16,100   1.44%      3.9x
+    2043      1,250      861      3,831    5,941    21,916    15,975   1.45%      3.7x
+    2044      1,285      908      3,938    6,131    22,058    15,927   1.44%      3.6x
+    2045      1,273      957      4,051    6,280    22,177    15,897   1.43%      3.5x
+    2046      1,282    1,006      4,163    6,451    22,277    15,826   1.41%      3.5x
+    2047      1,346    1,062      4,262    6,670    22,360    15,690   1.41%      3.4x
+    2048      1,535    1,122      4,358    7,015    22,428    15,414   1.44%      3.2x
+    2049      1,660    1,185      4,433    7,278    22,485    15,207   1.45%      3.1x
+    2050      1,692    1,255      4,503    7,450    22,532    15,082   1.44%      3.0x
+
+    Exit%   = total exits as a share of the active stock that year
+    Replace = entrants per exit. A system in steady state sits at 1.0x;
+              Tamil Nadu stays above 2.5x for the whole projection window.
+
+    Cumulative over 2026-2050:
+       Retirements     27,600   (22.5% of exits)
+       Deaths          17,914   (14.6% of exits)
+       Migration       77,307   (62.9% of exits)
+       TOTAL EXITS    122,821
+       Entrants       489,230   -> net addition    +366,409
+
+
+SENSITIVITY, emigration / out-of-state loss (the key uncertain parameter)
+------------------------------------------------------------------------------
+    Rate (ages 25-45)          Active 2025   Active 2050  Density 2050
+      0.6%/yr  (~11.9% cum.)          160,210       557,686          73.4
+      1.2%/yr  (~22.4% cum.)          151,248       517,657          68.1
+      2.0%/yr  (~34.6% cum.)          140,448       469,842          61.8
+      3.0%/yr  (~47.3% cum.)          128,570       417,894          55.0
+
+
+SENSITIVITY, age at registration (inferred, not observed)
+------------------------------------------------------------------------------
+    Registration is assumed at age 24 (MBBS entry at 18 plus 5.5 years). Age is
+    never observed in the register, only inferred from year of registration, and
+    retirement timing is the output most sensitive to it.
+    Age assumed      Active 2025   Active 2050  Retirements 2050  Cumulative retirements 2026-50
+    22                   155,889       531,587             1,532                          25,764
+    23                   153,624       524,705             1,658                          26,669
+    24                   151,248       517,657             1,692                          27,600
+    25                   150,548       516,644             1,745                          28,898
+    26                   149,738       515,463             1,978                          30,337
+    Central case is 24. A one-year change moves the 2050 stock by well under one
+    per cent but shifts cumulative retirements materially, which is the point:
+    the stock is robust to this assumption, the retirement profile is not.
+
+
+INTERNATIONAL BENCHMARKS, doctors per 10,000 population
+------------------------------------------------------------------------------
+    India (all states, active, approx.)      ~ 7 - 9
+    Tamil Nadu, modelled 2025                  19.6
+    United Kingdom                           ~ 32
+    OECD average                             ~ 35
+    Cuba (world's highest)                   ~ 84
+    Tamil Nadu, modelled 2050 (status quo)     68.1   <-- see caveat below
+
+    CAVEAT: this is an UNCONSTRAINED SUPPLY projection. It answers 'how many
+    doctors will Tamil Nadu produce and retain on current trajectories', not
+    'how many will the health system employ'. A density approaching OECD
+    levels is the model telling us that current seat-expansion plans exceed
+    any plausible absorption capacity, that is the finding, not a forecast
+    of employment. The corrective in reality is higher out-migration, which
+    the sensitivity block above prices.
+
+
+POPULATION SPINE
+------------------------------------------------------------------------------
+    2025:  77.32 million   (NCP official)
+    2031:  78.08 million   (NCP official)
+    2036:  78.07 million   (NCP official)
+    2040:  77.86 million   (momentum-exhausted extension)
+    2050:  76.02 million   (momentum-exhausted extension)

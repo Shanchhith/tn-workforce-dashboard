@@ -1,0 +1,104 @@
+================================================================================================
+TAMIL NADU HEALTH WORKFORCE, CADRES OTHER THAN DOCTORS
+Annual qualified output projected to 2050
+================================================================================================
+
+THIS IS AN EDUCATION OUTPUT PROJECTION, NOT A WORKFORCE STOCK PROJECTION.
+No register comparable to the NMC register was available for these cadres, so
+there is no opening stock, no attrition, and no need or demand benchmark.
+
+PARAMETERS ESTIMATED FROM THE SOURCE FILES
+------------------------------------------------------------------------------------------------
+Cadre                   Group            Course 2025 seats   Fill  Completion  Completion basis            
+BSc Nursing             Nursing              4y     18,910    97%         76%  observed (1 cohort match)   
+MSc Nursing             Nursing              2y      1,256    59%         89%  observed (3 cohort matches) 
+Post Basic BSc Nursing  Nursing              2y      1,705    48%         80%  observed (3 cohort matches) 
+BDS                     Dental               5y      2,200    91%         91%  assumed                     
+MDS                     Dental               3y        435    92%         99%  observed (2 cohort matches) 
+B.Pharm                 Pharmacy             4y     10,130    93%         82%  observed (1 cohort match)   
+M.Pharm                 Pharmacy             2y      2,309    67%         93%  observed (3 cohort matches) 
+Pharm.D                 Pharmacy             6y      1,560    92%         91%  assumed                     
+BPT                     Rehabilitation       5y      3,348    89%         91%  assumed                     
+MPT                     Rehabilitation       2y        375    94%         98%  observed (3 cohort matches) 
+BOT                     Rehabilitation       5y        728    67%         91%  assumed                     
+MOT                     Rehabilitation       2y         39    74%         93%  observed (3 cohort matches) 
+BAMS (Ayurveda)         AYUSH                6y        330    84%         91%  assumed                     
+BSMS (Siddha)           AYUSH                6y      1,040    85%         91%  assumed                     
+BUMS (Unani)            AYUSH                6y         60    95%         91%  assumed                     
+BNYS (Naturopathy)      AYUSH                6y      2,060    83%         91%  assumed                     
+BHMS (Homoeopathy)      AYUSH                6y        850    66%         91%  assumed                     
+MD Siddha               AYUSH                3y        152    97%         97%  observed (1 cohort match)   
+MD Homoeopathy          AYUSH                3y         96    77%         76%  observed (1 cohort match)   
+AHS PG (allied)         Allied health        2y        472    65%         91%  observed (3 cohort matches) 
+
+Default completion where no cohort match was possible: 91% (median of 11 observed)
+
+DATA QUALITY: PASS-OUT YEARS EXCLUDED AS PARTIAL EXTRACTS
+------------------------------------------------------------------------------------------------
+  BSc Nursing              excluded 2024: 710                kept: 7,315, 8,983, 9,189, 10,311
+  Post Basic BSc Nursing   excluded 2022: 98                 kept: 562, 717, 766, 1,339
+  BDS                      excluded 2024: 162                kept: 1,446, 1,547, 1,840
+  B.Pharm                  excluded 2024: 803                kept: 3,572, 4,087, 4,351, 5,980
+  M.Pharm                  excluded 2022: 17                 kept: 512, 579, 937, 1,114
+  BPT                      excluded 2024: 299                kept: 1,260, 1,388, 1,446, 1,476
+  MPT                      excluded 2022: 69                 kept: 229, 274, 352, 535
+  BOT                      excluded 2024: 11                 kept: 134, 149, 154, 155
+  MOT                      excluded 2022: 3                  kept: 18, 20, 28, 35
+  BUMS (Unani)             excluded 2024: 21                 kept: 57, 58, 60
+  MD Siddha                excluded 2024: 2                  kept: 143, 146, 148, 150
+  MD Homoeopathy           excluded 2024: 1                  kept: 28, 41, 44, 48
+
+NOT COVERED, AND WHY
+------------------------------------------------------------------------------------------------
+  GNM nursing
+      Not present in any source file. Sits with the Tamil Nadu Nurses and Midwives Council, no
+      t the university.
+  ANM nursing
+      Not present in any source file. Same reason as GNM.
+  AHS UG (allied health, degree)
+      Present but internally inconsistent: the sheet reports 10,593 admissions against 3,904 s
+      anctioned seats for 2025, a fill rate of 271 per cent, and pass-outs swing from 80 to 10
+      ,716 to 508 across four years. Not usable without clarification from the university.
+  MD Naturopathy and Yoga, MD Unani
+      Seat counts present but very small (65 and 11 seats) and pass-out sheets are incomplete.
+       Folded into no projection.
+  Pharm.D Post Baccalaureate
+      Only three pass-out years, two of them clearly partial.
+
+PROJECTED ANNUAL QUALIFIED OUTPUT (trend path)
+------------------------------------------------------------------------------------------------
+First fully covered output year is 2027: seat data begins in 2021 and the
+longest course here is six years. Earlier years are partial and are not totalled.
+
+Cadre                         2027      2030      2040      2050
+BSc Nursing                 11,698    14,906    23,745    23,745
+MSc Nursing                    695       797     1,034     1,034
+Post Basic BSc Nursing         648       619       552       552
+BDS                          1,777     1,818     2,049     2,049
+MDS                            391       429       559       559
+B.Pharm                      6,416     8,383    13,777    13,777
+M.Pharm                      1,450     2,006     3,301     3,301
+Pharm.D                        602     1,054     2,862     3,035
+BPT                          2,472     2,833     4,009     4,009
+MPT                            348       358       380       380
+BOT                            380       477       771       771
+MOT                             30        39        60        60
+BAMS (Ayurveda)                283       252       170       160
+BSMS (Siddha)                  500       800     1,514     1,593
+BUMS (Unani)                    52        44        45        44
+BNYS (Naturopathy)           1,253     1,329     2,168     2,236
+BHMS (Homoeopathy)             544       520       422       412
+MD Siddha                      143       143       143       143
+MD Homoeopathy                  60        71       128       128
+AHS PG (allied)                280       296       333       333
+TOTAL (these cadres)        30,022    37,172    58,022    58,323
+
+BY GROUP, TREND PATH
+------------------------------------------------------------------------------------------------
+Group                   2027      2030      2040      2050
+AYUSH                  2,834     3,159     4,589     4,717
+Allied health            280       296       333       333
+Dental                 2,167     2,247     2,608     2,608
+Nursing               13,042    16,322    25,330    25,330
+Pharmacy               8,468    11,442    19,941    20,114
+Rehabilitation         3,230     3,706     5,220     5,220

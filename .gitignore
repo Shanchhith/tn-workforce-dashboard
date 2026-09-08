@@ -1,0 +1,22 @@
+# NEVER commit these. The scraped register holds doctor names, father names and
+# registration numbers for 193,264 individuals, and the source workbooks are
+# unpublished State data. The dashboard reads the aggregates in dashboard/data/
+# and produces identical results without either, so neither is needed here.
+imr_tamilnadu_output/
+tamilnadu_doctors.csv
+*_full.csv
+details_raw*
+raw_rows*
+new data/
+*.xls
+
+# Generated when the model scripts are run locally.
+projections_out/
+cadre_out/
+
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+venv/
+~$*
