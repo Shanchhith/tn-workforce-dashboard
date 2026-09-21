@@ -42,9 +42,15 @@ st.markdown("""
       box-shadow:0 1px 3px rgba(16,40,60,0.05); }
   [data-testid="stMetricValue"] { font-size: 1.72rem !important; font-weight: 700;
       color:#0F4761; letter-spacing:-0.02em; }
+  [data-testid="stMetricLabel"] { width:100%; overflow:visible !important; }
   [data-testid="stMetricLabel"] p { font-size: 0.8rem !important; color:#55606a;
-      font-weight:600; letter-spacing:0.01em; }
-  [data-testid="stMetricDelta"] { font-size: 0.78rem !important; }
+      font-weight:600; letter-spacing:0.01em; white-space:normal !important;
+      overflow:visible !important; text-overflow:clip !important; line-height:1.3; }
+  [data-testid="stMetricValue"] > div { overflow:visible !important; }
+  [data-testid="stMetricDelta"] { font-size: 0.78rem !important; white-space:normal !important;
+      overflow:visible !important; }
+  [data-testid="stMetricDelta"] > div { white-space:normal !important; overflow:visible !important;
+      text-overflow:clip !important; line-height:1.3; }
 
   /* sidebar */
   section[data-testid="stSidebar"] { background:#f7f9fa; border-right:1px solid #e3e8ec; }
@@ -53,12 +59,15 @@ st.markdown("""
       border-bottom:1px solid #dfe5ea; padding-bottom:0.3rem; }
   section[data-testid="stSidebar"] label p { font-size:0.86rem !important; }
 
-  /* tabs */
-  .stTabs [data-baseweb="tab-list"] { gap:2px; border-bottom:1px solid #dfe5ea; }
-  .stTabs [data-baseweb="tab"] { font-size:0.95rem; font-weight:600; color:#55606a;
-      padding:0.55rem 1.05rem; }
-  .stTabs [aria-selected="true"] { color:#0F4761 !important; background:#eef3f7;
-      border-radius:6px 6px 0 0; }
+  /* section navigation, styled as tabs */
+  div[data-testid="stSegmentedControl"] { border-bottom:1px solid #dfe5ea; margin-bottom:0.6rem; }
+  div[data-testid="stSegmentedControl"] button { font-size:0.95rem !important; font-weight:600;
+      color:#55606a; padding:0.5rem 1.0rem; border:none !important; border-radius:6px 6px 0 0 !important;
+      background:transparent; }
+  div[data-testid="stSegmentedControl"] button[aria-checked="true"],
+  div[data-testid="stSegmentedControl"] button[data-selected="true"] {
+      color:#0F4761 !important; background:#eef3f7 !important; }
+  div[data-testid="stSegmentedControl"] button p { font-size:0.95rem !important; }
 
   /* callouts */
   .note { background:#eef3f7; border-left:4px solid #0F4761; padding:0.8rem 1.05rem;
@@ -80,6 +89,9 @@ st.markdown("""
 
 INK   = "#0F4761"      # house accent, used for the primary series
 ACC   = ["#0F4761", "#C0392B", "#5B8FA8", "#7a7a7a", "#9aa7b1", "#2E6E4F"]
+BASELINE_STYLE = dict(color="#8a939b", dash="dash")
+# Distinct solid colours for comparing variants on one chart.
+COMPARE = ["#0F4761", "#C0392B", "#2E8B57", "#D98E04", "#6C3FA0", "#0E8A8A"]
 DASH  = ["solid", "dash", "dot", "dashdot", "longdash", "longdashdot"]
 FILLS = ["#0F4761", "#5B8FA8", "#A8C2D0", "#7a7a7a"]
 SPLIT = 2025.5        # last observed year boundary
@@ -121,25 +133,41 @@ def _layout(fig, title, ylab, height, subtitle=None, zero=False, xr=None):
     return fig
 
 
-def chart(title, ylab, series, x, annotate=True, height=455, subtitle=None, fill_first=True):
-    """One chart. First series is the emphasis line and is filled beneath."""
+def chart(title, ylab, series, x, annotate=True, height=455, subtitle=None, fill_first=True,
+          palette=None, yfmt=",.0f"):
+    """One chart. First series is the emphasis line and is filled beneath.
+    With palette=COMPARE every line is solid in its own colour, so several
+    variants of the same quantity can sit on one chart."""
     fig = go.Figure()
+    ci = 0
     for i, (name, data) in enumerate(series):
         yv = [data.get(k) if isinstance(data, dict) else data[j]
               for j, k in enumerate(x)]
-        is_lead = (i == 0)
+        is_lead = (i == 0 and palette is None)
+        if name == "Published baseline":
+            line = dict(color=BASELINE_STYLE["color"], width=1.8,
+                        dash=BASELINE_STYLE["dash"], shape="spline", smoothing=0.35)
+            colr = BASELINE_STYLE["color"]
+        elif palette is not None:
+            colr = palette[ci % len(palette)]
+            line = dict(color=colr, width=2.6, shape="spline", smoothing=0.35)
+            ci += 1
+        else:
+            line = dict(color=ACC[ci % len(ACC)], width=2.9 if is_lead else 2.0,
+                        dash=DASH[ci % len(DASH)], shape="spline", smoothing=0.35)
+            colr = ACC[ci % len(ACC)]
+            ci += 1
         fig.add_trace(go.Scatter(
-            x=x, y=yv, name=name, mode="lines",
-            line=dict(color=ACC[i % len(ACC)], width=2.9 if is_lead else 2.0,
-                      dash=DASH[i % len(DASH)], shape="spline", smoothing=0.35),
+            x=x, y=yv, name=name, mode="lines", line=line,
             fill="tozeroy" if (is_lead and fill_first) else None,
             fillcolor="rgba(15,71,97,0.07)" if (is_lead and fill_first) else None,
-            hovertemplate="%{y:,.0f}<extra>" + name + "</extra>"))
-        if annotate and yv and yv[-1] is not None and yv[-1] == yv[-1]:
+            hovertemplate="%{y:" + yfmt + "}<extra>" + name + "</extra>"))
+        if (annotate and name != "Published baseline"
+                and yv and yv[-1] is not None and yv[-1] == yv[-1]):
             fig.add_annotation(
-                x=x[-1], y=yv[-1], text=f"<b>{yv[-1]:,.0f}</b>", showarrow=False,
+                x=x[-1], y=yv[-1], text=f"<b>{yv[-1]:{yfmt}}</b>", showarrow=False,
                 xanchor="left", xshift=8, bgcolor="rgba(255,255,255,0.85)",
-                font=dict(size=11.5, color=ACC[i % len(ACC)]))
+                font=dict(size=11.5, color=colr))
     _shade_projection(fig, x)
     pad = max(1.5, (x[-1] - x[0]) * 0.055)
     return _layout(fig, title, ylab, height, subtitle, zero=fill_first,
@@ -365,10 +393,6 @@ is_default = (P.to_dict() == E.Params(end_year=int(end_year)).to_dict()
 # ------------------------------------------------------------------- header
 st.markdown("# Tamil Nadu Health Workforce Projections")
 st.markdown('<div class="rule"></div>', unsafe_allow_html=True)
-st.markdown(f'<div class="subtitle">Supply side projection to <b>{P.end_year}</b>, '
-            'covering doctors, specialists and twenty other cadres.<br>'
-            'Centre for Management of Health Services, Indian Institute of '
-            'Management Ahmedabad.</div>', unsafe_allow_html=True)
 
 @st.cache_data(show_spinner="Running the projection")
 def run_doc(params_dict):
@@ -376,6 +400,7 @@ def run_doc(params_dict):
 
 try:
     R = run_doc(P.to_dict())
+    R0 = run_doc(E.Params(end_year=int(end_year)).to_dict())   # published baseline
 except FileNotFoundError as err:
     st.error(str(err))
     st.stop()
@@ -396,15 +421,29 @@ else:
 
 ey = P.end_year
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("Active doctors, " + str(ey), f"{R['active'][ey]:,.0f}",
-          f"{R['active'][ey] - R['active'][2025]:+,.0f} vs 2025")
-c2.metric("Per 10,000 people", f"{R['density'][ey]:,.1f}",
-          f"{R['density'][ey] - R['density'][2025]:+,.1f}")
-c3.metric("Active specialists", f"{R['specialists'][ey]:,.0f}",
-          f"{R['specialists'][ey] / R['active'][ey] * 100:.0f}% of stock")
-c4.metric("Entrants per year", f"{R['entrants'][ey]:,.0f}")
-c5.metric("Surplus vs WHO floor", f"{R['surplus'][ey]:,.0f}",
-          f"{R['active'][ey] / R['who_need'][ey]:.1f}x the floor")
+if is_default:
+    c1.metric("Active doctors, " + str(ey), f"{R['active'][ey]:,.0f}",
+              f"{R['active'][ey] - R['active'][2025]:+,.0f} vs 2025")
+    c2.metric("Per 10,000 people", f"{R['density'][ey]:,.1f}",
+              f"{R['density'][ey] - R['density'][2025]:+,.1f} vs 2025")
+    c3.metric("Active specialists", f"{R['specialists'][ey]:,.0f}",
+              f"{R['specialists'][ey] / R['active'][ey] * 100:.0f}% of stock")
+    c4.metric("Entrants per year", f"{R['entrants'][ey]:,.0f}")
+    c5.metric("Surplus vs WHO floor", f"{R['surplus'][ey]:,.0f}",
+              f"{R['active'][ey] / R['who_need'][ey]:.1f}x the floor")
+else:
+    # Modified: every delta is against the published value, so the effect of
+    # the change is readable directly off the cards.
+    c1.metric("Active doctors, " + str(ey), f"{R['active'][ey]:,.0f}",
+              f"{R['active'][ey] - R0['active'][ey]:+,.0f} vs published")
+    c2.metric("Per 10,000 people", f"{R['density'][ey]:,.1f}",
+              f"{R['density'][ey] - R0['density'][ey]:+,.1f} vs published")
+    c3.metric("Active specialists", f"{R['specialists'][ey]:,.0f}",
+              f"{R['specialists'][ey] - R0['specialists'][ey]:+,.0f} vs published")
+    c4.metric("Entrants per year", f"{R['entrants'][ey]:,.0f}",
+              f"{R['entrants'][ey] - R0['entrants'][ey]:+,.0f} vs published")
+    c5.metric("Surplus vs WHO floor", f"{R['surplus'][ey]:,.0f}",
+              f"{R['surplus'][ey] - R0['surplus'][ey]:+,.0f} vs published")
 
 _pvt_share = R["pvt_seats"][ey] / R["total_seats"][ey] * 100
 _ratio = R["entrants"][ey] / R["exits"][ey]
@@ -417,26 +456,43 @@ st.markdown(
     f'by {ey}, and the state still adds <b>{_ratio:.1f} doctors for every one it loses</b>.'
     '</div>', unsafe_allow_html=True)
 
-tabs = st.tabs(["Doctors", "Seats and pipeline", "Exits", "Other cadres",
-                "Sensitivity", "Assumptions", "Data and sources"])
+SECTIONS = ["Doctors", "Compare rates", "Seats and pipeline", "Exits", "Other cadres",
+            "Sensitivity", "Assumptions", "Data and sources"]
+# Only the section on screen is built on each rerun, which is what keeps a
+# slider change feeling immediate: one or two charts refresh, not eleven.
+if st.session_state.get("section") not in SECTIONS:
+    # ?section=Compare%20rates opens the page on that section.
+    qp = st.query_params.get("section")
+    st.session_state["section"] = qp if qp in SECTIONS else SECTIONS[0]
+section = st.segmented_control("Section", SECTIONS, key="section",
+                               label_visibility="collapsed") or SECTIONS[0]
 
 # ------------------------------------------------------------------ doctors
-with tabs[0]:
+if section == "Doctors":
     a, b = st.columns(2)
     with a:
+        series = [("Active doctors", R["active"])]
+        if not is_default:
+            series.append(("Published baseline", R0["active"]))
+        series.append(("WHO requirement", R["who_need"]))
         st.plotly_chart(chart("Active doctors against the WHO requirement", "Doctors",
-                              [("Active doctors", R["active"]),
-                               ("WHO requirement", R["who_need"])], proj_years,
-                              subtitle="The WHO figure is a floor for basic coverage, "
-                                       "not a target."),
+                              series, proj_years,
+                              subtitle=("Dashed grey is the published baseline."
+                                        if not is_default else
+                                        "The WHO figure is a floor for basic coverage, "
+                                        "not a target.")),
                         width="stretch")
     with b:
-        st.plotly_chart(chart("Doctor density", "Doctors per 10,000",
-                              [("Modelled density", R["density"]),
-                               ("WHO floor", {y: P.who_norm * P.who_doctor_share
-                                              for y in proj_years})], proj_years,
-                              subtitle="Driven by supply, not by the falling population: "
-                                       "the denominator moves under 2 per cent."),
+        series = [("Modelled density", R["density"])]
+        if not is_default:
+            series.append(("Published baseline", R0["density"]))
+        series.append(("WHO floor", {y: P.who_norm * P.who_doctor_share
+                                     for y in proj_years}))
+        st.plotly_chart(chart("Doctor density", "Doctors per 10,000", series, proj_years,
+                              subtitle=("Dashed grey is the published baseline."
+                                        if not is_default else
+                                        "Driven by supply, not by the falling population: "
+                                        "the denominator moves under 2 per cent.")),
                         width="stretch")
     a, b = st.columns(2)
     with a:
@@ -476,8 +532,159 @@ with tabs[0]:
                  width="stretch", height=340)
     df_download(doc_df, "Download the doctor series as CSV", "tn_doctors.csv")
 
+# ------------------------------------------------------------ compare rates
+if section == "Compare rates":
+    st.markdown("### Several values of one rate, on one chart")
+    st.markdown('<div class="note">Pick a rate, give it several values or several '
+                'paths over time, and every variant is run through the full model '
+                'and drawn in its own colour. Everything else stays as set in the '
+                'sidebar. The dashed grey line is the published baseline.</div>',
+                unsafe_allow_html=True)
+
+    CMP_FIELDS = {
+        "Emigration and out-of-state loss": ("emigration_rate", "0.006, 0.012, 0.020, 0.030",
+                                             "%.3f", True),
+        "MBBS fill rate":                   ("fill_mbbs", "0.85, 0.90, 0.95, 1.00", "%.3f", True),
+        "PG fill rate":                     ("fill_pg", "0.80, 0.90, 0.95, 1.00", "%.3f", True),
+        "Completion rate":                  ("completion", "0.80, 0.90, 0.95, 1.00", "%.2f", True),
+        "External entrants per year":       ("external_residual", "0, 2500, 5381, 8000",
+                                             "%.0f", True),
+        "PG external entrants per year":    ("pg_residual", "0, 800, 1599, 3000", "%.0f", True),
+        "Government seat target":           ("gov_target", "5200, 6000, 7500, 9250", "%.0f", False),
+        "Private seat ceiling":             ("pvt_ceiling", "8000, 10000, 12000", "%.0f", False),
+        "Age at registration":              ("age_at_registration", "22, 24, 26", "%d", False),
+    }
+    CMP_OUT = {
+        "Active doctors": ("active", "Doctors", ",.0f"),
+        "Doctors per 10,000 people": ("density", "Per 10,000", ",.1f"),
+        "Active specialists": ("specialists", "Specialists", ",.0f"),
+        "Entrants per year": ("entrants", "Doctors per year", ",.0f"),
+        "Exits per year": ("exits", "Doctors per year", ",.0f"),
+        "Surplus over the WHO floor": ("surplus", "Doctors", ",.0f"),
+    }
+    # Paths are anchored at the rate's current value v.
+    PATHS = {
+        "Constant at current value":      lambda v, ey: v,
+        "Halves by 2040":                 lambda v, ey: {2026: v, 2040: v / 2},
+        "Doubles by 2040":                lambda v, ey: {2026: v, 2040: v * 2},
+        "Falls to zero by 2040":          lambda v, ey: {2026: v, 2040: 0.0},
+        "Rises by half by 2035":          lambda v, ey: {2026: v, 2035: v * 1.5},
+        "Halves by 2035, back by 2050":   lambda v, ey: {2026: v, 2035: v / 2, 2050: v},
+        "Doubles by 2035, back by 2050":  lambda v, ey: {2026: v, 2035: v * 2, 2050: v},
+    }
+
+    c1, c2, c3 = st.columns([1.3, 1, 1])
+    with c1:
+        field_lab = st.selectbox("Rate to vary", list(CMP_FIELDS.keys()), key="cmp_field")
+    fkey, fdefault, ffmt, schedulable = CMP_FIELDS[field_lab]
+    with c2:
+        out_lab = st.selectbox("Show", list(CMP_OUT.keys()), key="cmp_out")
+    okey, oylab, ofmt = CMP_OUT[out_lab]
+    with c3:
+        mode = st.radio("Compare", ["Constant values", "Paths over time"], key="cmp_mode",
+                        horizontal=True,
+                        disabled=not schedulable,
+                        help="Paths are available for the six rates the model can "
+                             "schedule over time.")
+    if not schedulable:
+        mode = "Constant values"
+
+    cur = getattr(P, fkey)
+    cur_v = float(cur) if not isinstance(cur, dict) else E.sched(cur, 2026)
+    variants = []          # (label, value-or-schedule)
+    if mode == "Constant values":
+        raw = st.text_input("Values, separated by commas", fdefault, key="cmp_vals",
+                            help="Two to six values. Each becomes one line.")
+        for tok in raw.replace(";", ",").split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            try:
+                v = float(tok)
+            except ValueError:
+                st.warning(f"Could not read '{tok}' as a number; skipped.")
+                continue
+            if fkey == "emigration_rate":
+                lab = f"{v:.1%} per year"
+            elif fkey in ("fill_mbbs", "fill_pg", "completion"):
+                lab = f"{v:.2f}"
+            elif fkey == "age_at_registration":
+                lab = f"Age {v:.0f}"
+            elif fkey in ("gov_target", "pvt_ceiling"):
+                lab = f"{v:,.0f} seats"
+            else:
+                lab = f"{v:,.0f} per year"
+            variants.append((lab, v))
+    else:
+        chosen = st.multiselect("Paths", list(PATHS.keys()),
+                                default=["Constant at current value", "Halves by 2040",
+                                         "Doubles by 2040"], key="cmp_paths",
+                                help="Each path starts from the rate's current value "
+                                     "and is interpolated between its anchor years.")
+        for name in chosen:
+            variants.append((name, PATHS[name](cur_v, P.end_year)))
+    variants = variants[:6]
+
+    if len(variants) < 1:
+        st.info("Enter at least one value.")
+    else:
+        runs = []
+        for lab, val in variants:
+            base = P.to_dict()
+            if fkey == "gov_target" and base.get("gov_target_year") is None:
+                base["gov_target_year"] = 2035
+            rr = run_doc(E.Params(**(base | {fkey: val})).to_dict())
+            if all(abs(rr[okey][y] - R0[okey][y]) < 1e-6 for y in proj_years):
+                lab = lab + " (published)"
+            runs.append((lab, rr))
+        series = [(lab, rr[okey]) for lab, rr in runs]
+        if not any(lab.endswith("(published)") for lab, _ in runs):
+            series.append(("Published baseline", R0[okey]))
+        cur_lab = (f"{cur_v:.1%}" if fkey == "emigration_rate" else f"{cur_v:g}")
+        st.plotly_chart(chart(f"{out_lab} under different values of {field_lab.lower()}",
+                              oylab, series, proj_years, palette=COMPARE, yfmt=ofmt,
+                              fill_first=False, height=500,
+                              subtitle=f"Current sidebar setting: {cur_lab}. "
+                                       "All other assumptions held as set."),
+                        width="stretch")
+
+        # Table at the end year, with the gap to the published figure
+        def _row(lab, rr, diff):
+            row = {"Variant": lab, f"{out_lab}, {ey}": f"{rr[okey][ey]:{ofmt}}",
+                   "Difference from published": diff}
+            if okey != "active":
+                row[f"Active doctors, {ey}"] = f"{rr['active'][ey]:,.0f}"
+            if okey != "density":
+                row[f"Per 10,000, {ey}"] = f"{rr['density'][ey]:,.1f}"
+            return row
+        rows = [_row(lab, rr, f"{rr[okey][ey] - R0[okey][ey]:+{ofmt}}") for lab, rr in runs]
+        if not any(lab.endswith("(published)") for lab, _ in runs):
+            rows.append(_row("Published baseline", R0, ""))
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+
+        if mode == "Paths over time":
+            st.markdown("<div style='height:1.1rem'></div>", unsafe_allow_html=True)
+            yrs_r = list(range(2011, P.end_year + 1))
+            mult = 100 if fkey in ("emigration_rate", "fill_mbbs", "fill_pg", "completion") else 1
+            st.plotly_chart(chart(f"The {field_lab.lower()} paths being compared",
+                                  "Per cent" if mult == 100 else "Per year",
+                                  [(lab, {y: E.sched(val, y) * mult for y in yrs_r})
+                                   for lab, val in variants],
+                                  yrs_r, palette=COMPARE, fill_first=False, height=360,
+                                  yfmt=",.2f" if mult == 100 else ",.0f",
+                                  subtitle="Flat before the first anchor and after the last."),
+                            width="stretch")
+
+        out = pd.DataFrame({"Year": proj_years} | {lab: [rr[okey][y] for y in proj_years]
+                                                    for lab, rr in runs})
+        if not any(lab.endswith("(published)") for lab, _ in runs):
+            out["Published baseline"] = [R0[okey][y] for y in proj_years]
+        df_download(out, "Download this comparison as CSV",
+                    f"tn_compare_{fkey}_{okey}.csv")
+
+
 # -------------------------------------------------------- seats and pipeline
-with tabs[1]:
+if section == "Seats and pipeline":
     a, b = st.columns(2)
     with a:
         st.plotly_chart(chart("MBBS seats, government against private", "Sanctioned seats",
@@ -519,7 +726,7 @@ with tabs[1]:
     st.dataframe(pl, width="stretch", hide_index=True)
 
 # -------------------------------------------------------------------- exits
-with tabs[2]:
+if section == "Exits":
     a, b = st.columns(2)
     with a:
         st.plotly_chart(stacked("Exits from the workforce each year", "Exits",
@@ -554,7 +761,7 @@ with tabs[2]:
                 unsafe_allow_html=True)
 
 # ------------------------------------------------------------- other cadres
-with tabs[3]:
+if section == "Other cadres":
     st.markdown('<div class="warn"><b>These are annual qualifications, not a practising '
                 'workforce.</b> No register comparable to the NMC register exists for '
                 'these cadres, so there is no stock, no attrition and no benchmark. They '
@@ -625,7 +832,7 @@ with tabs[3]:
                  width="stretch", hide_index=True)
 
 # -------------------------------------------------------------- sensitivity
-with tabs[4]:
+if section == "Sensitivity":
     RATE_FIELDS = [("emigration_rate", "Emigration and out-of-state loss", "per year", 100),
                    ("fill_mbbs", "MBBS fill rate", "share", 100),
                    ("fill_pg", "PG fill rate", "share", 100),
@@ -703,7 +910,7 @@ with tabs[4]:
     st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True, height=350)
 
 # --------------------------------------------------------------- assumptions
-with tabs[5]:
+if section == "Assumptions":
     st.markdown("### Every assumption, and what kind it is")
     st.markdown('<div class="note">Three of these are decisions only the State can make '
                 'and are marked for confirmation. Two are resolvable with data that '
@@ -762,7 +969,7 @@ with tabs[5]:
                  width="stretch", hide_index=True, height=470)
 
 # ----------------------------------------------------------- data and sources
-with tabs[6]:
+if section == "Data and sources":
     st.markdown("### Where every number comes from")
     S = [
         ("TAKEN DIRECTLY", "MBBS seats, government and private, 2015-16 to 2025-26",
