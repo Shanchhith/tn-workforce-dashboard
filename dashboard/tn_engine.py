@@ -93,23 +93,26 @@ class Params:
     pg_intercept: float = 3953.4
     pg_slope: float = 321.5
     pg_cap_share: float = 0.70
-    # Pipeline
-    fill_mbbs: float = 0.998
-    fill_pg: float = 0.978
-    completion: float = 0.95
+    # Pipeline. Each of these accepts either a constant or a {year: value}
+    # schedule; see sched(). Fill and completion are looked up at the year the
+    # cohort is ADMITTED, so a change in 2030 affects the 2030 intake, who
+    # register six years later.
+    fill_mbbs: float | dict = 0.998
+    fill_pg: float | dict = 0.978
+    completion: float | dict = 0.95
     lag_mbbs: int = 6
     lag_pg: int = 3
-    # Entrants
-    external_residual: float = 5381.0475
+    # Entrants. Schedules allowed, looked up at the registration year.
+    external_residual: float | dict = 5381.0475
     gap_forward: float = 850.0
     fmg_base: float = 1606.0
     fmg_increment: float = 170.0
     fmg_ceiling: float = 3000.0
-    pg_residual: float = 1598.67735
+    pg_residual: float | dict = 1598.67735
     # Stock
     age_at_registration: int = 24
     age_at_pg: int = 30
-    emigration_rate: float = 0.012
+    emigration_rate: float | dict = 0.012      # schedule allowed, by calendar year
     emigration_age_lo: int = 25
     emigration_age_hi: int = 45
     mortality_bands: list = field(default_factory=lambda: list(DEFAULT_MORTALITY))
@@ -217,6 +220,33 @@ def _read_sheets(path, ycols, valuesets):
 
 
 # ---------------------------------------------------------------------------
+# Rate schedules
+# ---------------------------------------------------------------------------
+def sched(value, year: int) -> float:
+    """A rate that may change over time.
+
+    A plain number is a constant. A dict of {year: value} is a path: linear
+    interpolation between the anchor years, held flat before the first anchor
+    and after the last. So {2026: 0.012, 2040: 0.020} means emigration rises
+    steadily from 1.2 per cent to 2 per cent over fourteen years and then stays
+    at 2 per cent. All published defaults are constants, so nothing moves
+    unless a path is set."""
+    if not isinstance(value, dict):
+        return float(value)
+    pts = sorted((int(k), float(v)) for k, v in value.items())
+    if not pts:
+        raise ValueError("empty rate schedule")
+    if year <= pts[0][0]:
+        return pts[0][1]
+    if year >= pts[-1][0]:
+        return pts[-1][1]
+    for (y0, v0), (y1, v1) in zip(pts, pts[1:]):
+        if y0 <= year <= y1:
+            return v0 + (v1 - v0) * (year - y0) / (y1 - y0)
+    return pts[-1][1]
+
+
+# ---------------------------------------------------------------------------
 # Doctor model
 # ---------------------------------------------------------------------------
 def _band(bands, age):
@@ -286,7 +316,7 @@ def deemed_overlap(p: Params, year: int) -> float:
     if sy < 2023:
         return 0.0
     gap = SC_MGRMU_GAP.get(sy, p.gap_forward)
-    return gap * p.fill_mbbs * p.completion
+    return gap * sched(p.fill_mbbs, sy) * sched(p.completion, sy)
 
 
 def fmg(p: Params, year: int) -> float:
@@ -307,7 +337,7 @@ def run_doctors(p: Params, register: dict | None = None) -> dict:
         sy = y - p.lag_mbbs
         if sy < 2015 or sy not in total_seats:
             return float("nan")
-        return total_seats[sy] * p.fill_mbbs * p.completion
+        return total_seats[sy] * sched(p.fill_mbbs, sy) * sched(p.completion, sy)
 
     dom, ext, fm, ent = {}, {}, {}, {}
     for y in years:
@@ -317,17 +347,21 @@ def run_doctors(p: Params, register: dict | None = None) -> dict:
             ext[y] = (REG_MBBS_OBS[y] - dom[y]) if y in REG_MBBS_OBS and dom[y] == dom[y] else float("nan")
             fm[y] = float(REG_FMG_OBS.get(y, float("nan")))
         else:
-            ext[y] = p.external_residual - deemed_overlap(p, y)
+            ext[y] = sched(p.external_residual, y) - deemed_overlap(p, y)
             fm[y] = fmg(p, y)
             ent[y] = dom[y] + ext[y] + fm[y]
 
     mort = lambda a: _band(p.mortality_bands, a)
     part = lambda a: _band(p.participation_bands, a)
-    emig = lambda a: p.emigration_rate if p.emigration_age_lo <= a <= p.emigration_age_hi else 0.0
+    def emig_at(a, yr):
+        if p.emigration_age_lo <= a <= p.emigration_age_hi:
+            return sched(p.emigration_rate, yr)
+        return 0.0
 
     cohorts, active, retire, deaths, migr = {}, {}, {}, {}, {}
     for y in range(1927, p.end_year + 1):
         d_sum = e_sum = r_sum = 0.0
+        emig = lambda a, _y=y: emig_at(a, _y)
         for R in list(cohorts):
             a_prev = p.age_at_registration + (y - 1 - R)
             a = p.age_at_registration + (y - R)
@@ -353,6 +387,7 @@ def run_doctors(p: Params, register: dict | None = None) -> dict:
     pg_total_coverage = REG_PG_OBS[2020] / 1550.0
     for y in range(2000, p.end_year + 1):
         ex = 0.0
+        emig = lambda a, _y=y: emig_at(a, _y)
         for R in list(sp_cohorts):
             a_prev = p.age_at_pg + (y - 1 - R)
             a = p.age_at_pg + (y - R)
@@ -368,7 +403,8 @@ def run_doctors(p: Params, register: dict | None = None) -> dict:
             grads = {2018: 1400, 2019: 1500}.get(y, 1200.0) * pg_total_coverage
         else:
             sy = y - p.lag_pg
-            grads = (pg[sy] * p.fill_pg * p.completion + p.pg_residual) if sy in pg else 0.0
+            grads = ((pg[sy] * sched(p.fill_pg, sy) * sched(p.completion, sy)
+                      + sched(p.pg_residual, y)) if sy in pg else 0.0)
         sp_cohorts[y] = grads
         if y >= 2011:
             spec[y] = sum(n * part(p.age_at_pg + (y - R)) for R, n in sp_cohorts.items())

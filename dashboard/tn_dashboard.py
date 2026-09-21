@@ -259,6 +259,57 @@ if adv:
     ret65 = st.sidebar.slider("Still practising at 65 to 69", 0.0, 1.0, 0.60, 0.01)
     ret70 = st.sidebar.slider("Still practising at 70 to 74", 0.0, 1.0, 0.30, 0.01)
 
+    st.sidebar.markdown("## Rates that change over time")
+    st.sidebar.caption(
+        "Set a rate at any years you choose and the model interpolates between "
+        "them, holding flat before the first year and after the last. Leave a row "
+        "pair equal for a constant rate. The sliders above set the starting value.")
+    sched_on = st.sidebar.toggle("Enable rate schedules", value=False, key="sched_on",
+                                 help="Off: every rate is constant at the value set "
+                                      "above. On: the tables below take over.")
+
+    def rate_table(label, key, start, lo, hi, fmt, help_):
+        """A small editable Year/Value table. Returns a {year: value} dict."""
+        base = pd.DataFrame({"Year": [2026, int(end_year)], "Value": [start, start]})
+        st.sidebar.markdown(f"**{label}**")
+        st.sidebar.caption(help_)
+        df = st.sidebar.data_editor(
+            base, key=f"sched_{key}", num_rows="dynamic", hide_index=True,
+            width="stretch",
+            column_config={
+                "Year": st.column_config.NumberColumn(min_value=2011, max_value=2070,
+                                                      step=1, format="%d"),
+                "Value": st.column_config.NumberColumn(min_value=lo, max_value=hi,
+                                                       format=fmt)})
+        out = {}
+        for _, row in df.dropna().iterrows():
+            try:
+                out[int(row["Year"])] = float(row["Value"])
+            except (TypeError, ValueError):
+                continue
+        return out or {2026: start}
+
+    if sched_on:
+        s_emig = rate_table("Emigration and out-of-state loss", "emig", float(emig),
+                            0.0, 0.10, "%.3f",
+                            "Per year, ages 25 to 45. The most consequential rate.")
+        s_fill_mbbs = rate_table("MBBS fill rate", "fill_mbbs", float(fill_mbbs),
+                                 0.3, 1.0, "%.3f",
+                                 "Applies to the intake of that year, who register "
+                                 "six years later.")
+        s_fill_pg = rate_table("PG fill rate", "fill_pg", float(fill_pg), 0.3, 1.0,
+                               "%.3f", "Applies to the PG intake of that year.")
+        s_comp = rate_table("Completion rate", "comp", float(completion), 0.3, 1.0,
+                            "%.2f", "Share of an intake that qualifies.")
+        s_ext = rate_table("External entrants per year", "ext", float(residual),
+                           0.0, 30000.0, "%.0f",
+                           "Deemed universities and out of state returnees.")
+        s_pgres = rate_table("PG external entrants per year", "pgres", float(pg_res),
+                             0.0, 15000.0, "%.0f",
+                             "PG qualifications registered by doctors trained elsewhere.")
+    else:
+        s_emig = s_fill_mbbs = s_fill_pg = s_comp = s_ext = s_pgres = None
+
     st.sidebar.markdown("## Population and benchmark")
     pop_g = st.sidebar.slider("Population growth by final year", -0.020, 0.010,
                               D.pop_growth_2050, 0.0005, format="%.4f")
@@ -279,18 +330,29 @@ else:
     emig_lo, emig_hi = D.emigration_age_lo, D.emigration_age_hi
     ret60, ret65, ret70 = 0.85, 0.60, 0.30
     pop_g, who_norm, who_share = D.pop_growth_2050, D.who_norm, D.who_doctor_share
+    s_emig = s_fill_mbbs = s_fill_pg = s_comp = s_ext = s_pgres = None
+
+def _rate(schedule, constant):
+    """Use the schedule only if it actually varies; otherwise the constant."""
+    if not schedule:
+        return float(constant)
+    vals = list(schedule.values())
+    if all(abs(v - vals[0]) < 1e-12 for v in vals):
+        return float(vals[0])
+    return {int(k): float(v) for k, v in schedule.items()}
 
 P = E.Params(
     end_year=int(end_year), pop_growth_2050=pop_g,
     gov_target=float(gov_target), gov_target_year=gov_year,
     pvt_ceiling=float(pvt_K), pvt_growth_r=float(pvt_r), pvt_midpoint=float(pvt_t0),
     pg_slope=float(pg_slope), pg_cap_share=float(pg_cap),
-    fill_mbbs=float(fill_mbbs), fill_pg=float(fill_pg), completion=float(completion),
+    fill_mbbs=_rate(s_fill_mbbs, fill_mbbs), fill_pg=_rate(s_fill_pg, fill_pg),
+    completion=_rate(s_comp, completion),
     lag_mbbs=int(lag_mbbs), lag_pg=int(lag_pg),
-    external_residual=float(residual), gap_forward=float(gap_fwd),
+    external_residual=_rate(s_ext, residual), gap_forward=float(gap_fwd),
     fmg_base=float(fmg_base), fmg_increment=float(fmg_inc), fmg_ceiling=float(fmg_cap),
-    pg_residual=float(pg_res), age_at_registration=int(age_reg),
-    emigration_rate=float(emig), emigration_age_lo=int(emig_lo),
+    pg_residual=_rate(s_pgres, pg_res), age_at_registration=int(age_reg),
+    emigration_rate=_rate(s_emig, emig), emigration_age_lo=int(emig_lo),
     emigration_age_hi=int(emig_hi),
     participation_bands=[(60, 1.00), (65, ret60), (70, ret65), (75, ret70),
                          (80, 0.12), (999, 0.03)],
@@ -446,7 +508,8 @@ with tabs[1]:
                  "plus foreign graduates", "equals entrants to the register"],
         "Value at " + str(ey): [
             f"{R['total_seats'][ey - P.lag_mbbs]:,.0f} (seat year {ey - P.lag_mbbs})",
-            f"x {P.fill_mbbs:.3f}", f"x {P.completion:.2f}",
+            f"x {E.sched(P.fill_mbbs, ey - P.lag_mbbs):.3f}",
+            f"x {E.sched(P.completion, ey - P.lag_mbbs):.2f}",
             f"{P.lag_mbbs} years", f"+ {R['external'][ey]:,.0f}",
             f"+ {R['fmg'][ey]:,.0f}", f"= {R['entrants'][ey]:,.0f}"],
         "Status": ["Observed to 2025, then scenario", "OBSERVED from MGRMU",
@@ -563,6 +626,40 @@ with tabs[3]:
 
 # -------------------------------------------------------------- sensitivity
 with tabs[4]:
+    RATE_FIELDS = [("emigration_rate", "Emigration and out-of-state loss", "per year", 100),
+                   ("fill_mbbs", "MBBS fill rate", "share", 100),
+                   ("fill_pg", "PG fill rate", "share", 100),
+                   ("completion", "Completion rate", "share", 100),
+                   ("external_residual", "External entrants", "per year", 1),
+                   ("pg_residual", "PG external entrants", "per year", 1)]
+    active_scheds = [(k, lab, unit, mult) for k, lab, unit, mult in RATE_FIELDS
+                     if isinstance(getattr(P, k), dict)]
+    st.markdown("### Rates over time")
+    if active_scheds:
+        st.markdown('<div class="warn"><b>Rate schedules are active.</b> The rates '
+                    'below change over the projection rather than staying constant. '
+                    'Every figure on every tab reflects these paths.</div>',
+                    unsafe_allow_html=True)
+        yrs_r = list(range(2011, P.end_year + 1))
+        cols = st.columns(2)
+        for i, (k, lab, unit, mult) in enumerate(active_scheds):
+            path = {y: E.sched(getattr(P, k), y) * mult for y in yrs_r}
+            pct = mult == 100
+            with cols[i % 2]:
+                st.plotly_chart(chart(lab, "Per cent" if pct else unit,
+                                      [(lab, path)], yrs_r, annotate=True,
+                                      height=300, fill_first=False,
+                                      subtitle="Anchor years: " + ", ".join(
+                                          f"{y}: {v * mult:.{2 if pct else 0}f}"
+                                          for y, v in sorted(getattr(P, k).items()))),
+                                width="stretch")
+    else:
+        st.markdown('<div class="note">Every rate is constant over the projection, as '
+                    'published. To let a rate change over time, turn on "Edit '
+                    'individual assumptions" in the sidebar, then "Enable rate '
+                    'schedules", and set the rate at any years you choose.</div>',
+                    unsafe_allow_html=True)
+
     st.markdown("### The two parameters that carry the most weight")
     a, b = st.columns(2)
     with a:
@@ -623,8 +720,10 @@ with tabs[5]:
          "POLICY SCENARIO",
          "Built from the observed college distribution, but the level and timing are ours.",
          "FOR STATE CONFIRMATION"),
-        ("Emigration rate", f"{P.emigration_rate:.1%} per year, ages "
-         f"{P.emigration_age_lo} to {P.emigration_age_hi}", "CALIBRATED, not observed",
+        ("Emigration rate",
+         (f"{P.emigration_rate:.1%} per year" if not isinstance(P.emigration_rate, dict)
+          else "path: " + ", ".join(f"{y}: {v:.1%}" for y, v in sorted(P.emigration_rate.items())))
+         + f", ages {P.emigration_age_lo} to {P.emigration_age_hi}", "CALIBRATED, not observed",
          "No direct measure exists. The single most consequential parameter.",
          "Resolvable: NMC removedStatus field"),
         ("Age at registration", f"{P.age_at_registration} years", "INFERRED, not observed",
@@ -640,10 +739,15 @@ with tabs[5]:
          "Low impact, under 2 per cent on the denominator"),
         ("Foreign graduate ceiling", f"{P.fmg_ceiling:,.0f} per year", "ASSUMED",
          "Roughly double the 2025 level.", "Low priority"),
-        ("Completion rate", f"{P.completion:.0%}", "BENCHMARK",
+        ("Completion rate",
+         (f"{P.completion:.0%}" if not isinstance(P.completion, dict)
+          else "path: " + ", ".join(f"{y}: {v:.0%}" for y, v in sorted(P.completion.items()))),
+         "BENCHMARK",
          "NMC benchmark. Validated indirectly on PG: predicted 2,707 against 2,717 "
          "observed.", "Validated"),
-        ("External entrants", f"{P.external_residual:,.0f} per year",
+        ("External entrants",
+         (f"{P.external_residual:,.0f} per year" if not isinstance(P.external_residual, dict)
+          else "path: " + ", ".join(f"{y}: {v:,.0f}" for y, v in sorted(P.external_residual.items()))),
          "OBSERVED, assumed to persist",
          "The value is measured across 2021 to 2025 with no trend. Holding it flat for "
          "25 years is the assumption.", "Monitor"),
@@ -705,7 +809,9 @@ with tabs[6]:
     st.dataframe(pd.DataFrame(V, columns=["Check", "Independence", "What it establishes"]),
                  width="stretch", hide_index=True)
     st.markdown("### Current parameter set")
-    st.dataframe(pd.DataFrame([{"Parameter": k, "Value": v}
+    st.dataframe(pd.DataFrame([{"Parameter": k,
+                                "Value": (", ".join(f"{yy}: {vv:g}" for yy, vv in sorted(v.items()))
+                                          if isinstance(v, dict) else v)}
                                for k, v in P.to_dict().items()
                                if not isinstance(v, list)]),
                  width="stretch", hide_index=True, height=300)

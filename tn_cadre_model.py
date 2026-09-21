@@ -91,11 +91,11 @@ EXCLUDED = [
 def _norm(s):
     return re.sub(r"[^a-z]", "", str(s).lower())
 
-YCOLS = {"academicyear", "academicyr"}
-ECOLS = {"examyear"}
-SCOLS = {"sanctionedseats", "totalapprovedseats", "sanctionedseat"}
-ACOLS = {"studentadmitted", "admittedcount", "seatsfilled", "studentsadmitted", "stud"}
-PCOLS = {"studentspassedout", "studentpassedout"}
+YCOLS = ["academicyear", "academicyr"]
+ECOLS = ["examyear"]
+SCOLS = ["sanctionedseats", "sanctionedseat", "totalapprovedseats"]   # ordered: first match wins
+ACOLS = ["studentadmitted", "admittedcount", "seatsfilled", "studentsadmitted", "stud"]
+PCOLS = ["studentspassedout", "studentpassedout"]
 
 def read_sheets(path, ycols, valuesets):
     """Return {sheet: {year: [v1, v2, ...]}}. Handles the five header layouts
