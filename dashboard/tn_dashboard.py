@@ -47,6 +47,13 @@ st.markdown("""
       font-weight:600; letter-spacing:0.01em; white-space:normal !important;
       overflow:visible !important; text-overflow:clip !important; line-height:1.3; }
   [data-testid="stMetricValue"] > div { overflow:visible !important; }
+  /* narrow windows: smaller figures, tighter cards, so nothing clips */
+  @media (max-width: 1250px) {
+    [data-testid="stMetric"] { padding:0.65rem 0.7rem 0.55rem 0.7rem; }
+    [data-testid="stMetricValue"] { font-size:1.3rem !important; }
+    [data-testid="stMetricLabel"] p { font-size:0.72rem !important; }
+    [data-testid="stMetricDelta"], [data-testid="stMetricDelta"] > div { font-size:0.7rem !important; }
+  }
   [data-testid="stMetricDelta"] { font-size: 0.78rem !important; white-space:normal !important;
       overflow:visible !important; }
   [data-testid="stMetricDelta"] > div { white-space:normal !important; overflow:visible !important;
