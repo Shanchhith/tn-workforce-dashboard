@@ -79,11 +79,12 @@ DEFAULT_PARTICIPATION = [(60, 1.00), (65, 0.85), (70, 0.60), (75, 0.30),
 class Params:
     """Every assumption in the doctor model. Defaults are the validated values."""
     end_year: int = 2050
-    # Population. "ncp": the NCP 2019 series to 2036, then growth easing to
-    # pop_growth_2050. "growth": the NCP series to 2025, then a fixed annual
-    # rate, so the WHO requirement keeps rising with the population.
-    pop_path: str = "ncp"
-    pop_growth_rate: float = 0.003
+    # Population. "growth" (published): the NCP series verbatim to 2025, then
+    # its own 2021 to 2025 rate held constant, so the WHO requirement keeps
+    # rising with the population. "ncp": the NCP series to 2036, which
+    # plateaus near 78 million, then growth easing to pop_growth_2050.
+    pop_path: str = "growth"
+    pop_growth_rate: float = (NCP_POP[2025] / NCP_POP[2021]) ** 0.25 - 1.0
     pop_growth_2050: float = -0.0035
     # Government seats
     gov_2025: float = 5200.0

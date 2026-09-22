@@ -123,14 +123,14 @@ def _layout(fig, title, ylab, height, subtitle=None, zero=False, xr=None):
                    font=dict(size=15.5, color="#1d2a33"), x=0, xanchor="left",
                    y=0.98, yanchor="top"),
         height=height, plot_bgcolor="white", paper_bgcolor="white",
-        font=dict(family="Source Serif 4, Times New Roman, serif", size=12, color="#1d2a33"),
-        margin=dict(l=64, r=104, t=72 if subtitle else 52, b=96),
+        font=dict(family="Times New Roman, Georgia, serif", size=12, color="#1d2a33"),
+        margin=dict(l=64, r=104, t=72 if subtitle else 52, b=110),
         hovermode="x unified",
         hoverlabel=dict(bgcolor="white", bordercolor="#dfe5ea", namelength=-1,
-                        font=dict(family="Source Serif 4, serif", size=12)),
+                        font=dict(family="Times New Roman, Georgia, serif", size=12)),
         legend=dict(orientation="h", yanchor="top", y=-0.17, xanchor="left", x=0,
-                    font=dict(size=11.5), bgcolor="rgba(0,0,0,0)",
-                    entrywidth=190, entrywidthmode="pixels", itemsizing="constant"),
+                    font=dict(size=11.5), bgcolor="rgba(0,0,0,0)", itemsizing="constant",
+                    itemwidth=30, tracegroupgap=4),
         xaxis=dict(title=None, showgrid=False, linecolor="#c8d1d8", ticks="outside",
                    tickcolor="#c8d1d8", tickfont=dict(size=11.5),
                    range=xr, dtick=10 if xr else None),
@@ -141,8 +141,32 @@ def _layout(fig, title, ylab, height, subtitle=None, zero=False, xr=None):
     return fig
 
 
+PLOTLY_CONFIG = dict(responsive=True, displayModeBar=False, displaylogo=False)
+POP_COLOUR = "#6C3FA0"     # population, wherever it appears
+
+
+def _add_population(fig, x, pop):
+    """Population in millions on a right-hand axis, the same colour on every chart."""
+    yv = [pop.get(k) / 1e6 if pop.get(k) is not None else None for k in x]
+    fig.add_trace(go.Scatter(
+        x=x, y=yv, name="Population, millions", mode="lines", yaxis="y2",
+        line=dict(color=POP_COLOUR, width=1.8, dash="dashdot", shape="spline", smoothing=0.35),
+        hovertemplate="%{y:,.2f} m<extra>Population</extra>"))
+    fig.add_annotation(
+        x=x[-1], y=yv[-1], yref="y2", text=f"<b>{yv[-1]:,.1f} m</b>", showarrow=False,
+        xanchor="left", xshift=8, bgcolor="rgba(255,255,255,0.85)",
+        font=dict(size=11, color=POP_COLOUR))
+    lo = min(v for v in yv if v is not None)
+    fig.update_layout(
+        yaxis2=dict(title=dict(text="Population, millions", font=dict(size=11, color=POP_COLOUR)),
+                    overlaying="y", side="right", showgrid=False, zeroline=False,
+                    tickfont=dict(size=11, color=POP_COLOUR), tickformat=",.0f",
+                    range=[lo * 0.85, max(v for v in yv if v is not None) * 1.08]),
+        margin=dict(r=118))
+
+
 def chart(title, ylab, series, x, annotate=True, height=455, subtitle=None, fill_first=True,
-          palette=None, yfmt=",.0f"):
+          palette=None, yfmt=",.0f", pop=None):
     """One chart. First series is the emphasis line and is filled beneath.
     With palette=COMPARE every line is solid in its own colour, so several
     variants of the same quantity can sit on one chart."""
@@ -178,11 +202,14 @@ def chart(title, ylab, series, x, annotate=True, height=455, subtitle=None, fill
                 font=dict(size=11.5, color=colr))
     _shade_projection(fig, x)
     pad = max(1.5, (x[-1] - x[0]) * 0.055)
-    return _layout(fig, title, ylab, height, subtitle, zero=fill_first,
-                   xr=[x[0] - 0.4, x[-1] + pad])
+    fig = _layout(fig, title, ylab, height, subtitle, zero=fill_first,
+                  xr=[x[0] - 0.4, x[-1] + pad])
+    if pop is not None:
+        _add_population(fig, x, pop)
+    return fig
 
 
-def stacked(title, ylab, series, x, height=455, subtitle=None):
+def stacked(title, ylab, series, x, height=455, subtitle=None, pop=None):
     fig = go.Figure()
     for i, (name, data) in enumerate(series):
         yv = [data.get(k) for k in x]
@@ -192,8 +219,10 @@ def stacked(title, ylab, series, x, height=455, subtitle=None):
             fillcolor=FILLS[i % len(FILLS)],
             hovertemplate="%{y:,.0f}<extra>" + name + "</extra>"))
     _shade_projection(fig, x)
-    return _layout(fig, title, ylab, height, subtitle, zero=True,
-                   xr=[x[0], x[-1]])
+    fig = _layout(fig, title, ylab, height, subtitle, zero=True, xr=[x[0], x[-1]])
+    if pop is not None:
+        _add_population(fig, x, pop)
+    return fig
 
 
 def df_download(df, label, fname):
@@ -228,19 +257,25 @@ pvt_choice = st.sidebar.selectbox(
 gov_target_d, gov_year_d = E.GOV_SCENARIOS[gov_choice]
 pvt_K_d, pvt_r_d, pvt_t0_d = E.PVT_SCENARIOS[pvt_choice]
 
-POP_PATHS = {"ncp": "NCP 2019 projection, plateau near 78 million",
-             "growth": "Continued growth at a fixed rate"}
+POP_PATHS = {"growth": "Continued growth, NCP 2021 to 2025 rate held",
+             "ncp": "NCP 2019 projection, plateau near 78 million"}
 pop_path = st.sidebar.selectbox(
     "Population after 2025", list(POP_PATHS.keys()), index=0, key="pop_path",
     format_func=lambda k: POP_PATHS[k],
     help="The WHO requirement is a fixed density times population, so it rises "
-         "only if the population does. The official NCP series plateaus from 2031. "
-         "The second option keeps the population growing at the rate below.")
+         "only if the population does. Published: the NCP series to 2025, then its "
+         "own recent rate held constant. Alternative: the NCP series itself, which "
+         "plateaus from 2031.")
+show_pop = st.sidebar.toggle("Show population on charts", value=True, key="show_pop",
+                             help="Adds the population in millions on a right-hand axis, "
+                                  "in the same colour on every chart.")
 pop_rate = D.pop_growth_rate
 if pop_path == "growth":
     pop_rate = st.sidebar.slider("Population growth per year", 0.0, 0.015,
-                                 D.pop_growth_rate, 0.0005, format="%.4f", key="pop_rate",
-                                 help="0.0030 is the NCP series' own 2021 to 2025 rate.")
+                                 float(D.pop_growth_rate), 0.0001, format="%.4f",
+                                 key="pop_rate",
+                                 help="0.0030 is the NCP series' own 2021 to 2025 rate, "
+                                      "the published value.")
 
 adv = st.sidebar.toggle("Edit individual assumptions", value=False, key="adv",
                         help="Off: the scenario above sets everything. "
@@ -499,12 +534,12 @@ if section == "Doctors":
             series.append(("Published baseline", R0["active"]))
         series.append(("WHO requirement", R["who_need"]))
         st.plotly_chart(chart("Active doctors against the WHO requirement", "Doctors",
-                              series, proj_years,
+                              series, proj_years, pop=R["population"] if show_pop else None,
                               subtitle=("Dashed grey is the published baseline."
                                         if not is_default else
                                         "The WHO figure is a floor for basic coverage, "
                                         "not a target.")),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
     with b:
         series = [("Modelled density", R["density"])]
         if not is_default:
@@ -512,19 +547,21 @@ if section == "Doctors":
         series.append(("WHO floor", {y: P.who_norm * P.who_doctor_share
                                      for y in proj_years}))
         st.plotly_chart(chart("Doctor density", "Doctors per 10,000", series, proj_years,
+                              pop=R["population"] if show_pop else None,
                               subtitle=("Dashed grey is the published baseline."
                                         if not is_default else
-                                        "Driven by supply, not by the falling population: "
-                                        "the denominator moves under 2 per cent.")),
-                        width="stretch")
+                                        "Driven by supply: the population grows under "
+                                        "8 per cent over the period.")),
+                        width="stretch", config=PLOTLY_CONFIG)
     a, b = st.columns(2)
     with a:
         st.plotly_chart(chart("Active specialists within the stock", "Doctors",
                               [("Active specialists", R["specialists"]),
                                ("All active doctors", R["active"])], proj_years,
+                              pop=R["population"] if show_pop else None,
                               subtitle="A transition within the stock, never an addition "
                                        "to it. Broad speciality only."),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
     with b:
         ent_years = [y for y in proj_years if y >= 2021]
         st.plotly_chart(stacked("Who joins the register each year",
@@ -532,9 +569,10 @@ if section == "Doctors":
                                 [("Tamil Nadu state counselling", R["domestic"]),
                                  ("Deemed and out of state", R["external"]),
                                  ("Foreign medical graduates", R["fmg"])], ent_years,
+                                pop=R["population"] if show_pop else None,
                                 subtitle="Roughly half of all new registrations come from "
                                          "outside the state counselling system."),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
     st.markdown("### Annual series")
     doc_df = pd.DataFrame({
         "Year": proj_years,
@@ -667,9 +705,10 @@ if section == "Compare rates":
         st.plotly_chart(chart(f"{out_lab} under different values of {field_lab.lower()}",
                               oylab, series, proj_years, palette=COMPARE, yfmt=ofmt,
                               fill_first=False, height=500,
+                              pop=R["population"] if show_pop else None,
                               subtitle=f"Current sidebar setting: {cur_lab}. "
                                        "All other assumptions held as set."),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
 
         # Table at the end year, with the gap to the published figure
         def _row(lab, rr, diff):
@@ -696,7 +735,7 @@ if section == "Compare rates":
                                   yrs_r, palette=COMPARE, fill_first=False, height=360,
                                   yfmt=",.2f" if mult == 100 else ",.0f",
                                   subtitle="Flat before the first anchor and after the last."),
-                            width="stretch")
+                            width="stretch", config=PLOTLY_CONFIG)
 
         out = pd.DataFrame({"Year": proj_years} | {lab: [rr[okey][y] for y in proj_years]
                                                     for lab, rr in runs})
@@ -715,16 +754,18 @@ if section == "Seats and pipeline":
                                ("Private", R["pvt_seats"]),
                                ("Total", R["total_seats"])],
                               [y for y in proj_years if y >= 2015], fill_first=False,
+                              pop=R["population"] if show_pop else None,
                               subtitle="Government moved 25 seats in four years. All growth "
                                        "since 2021 has been private."),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
     with b:
         st.plotly_chart(chart("Postgraduate medical seats", "Sanctioned seats",
                               [("PG seats", R["pg_seats"])],
                               [y for y in proj_years if y >= 2021],
+                              pop=R["population"] if show_pop else None,
                               subtitle=f"Linear in levels, capped at {P.pg_cap_share:.0%} "
                                        "of MBBS seats. The cap is our own assumption."),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
     st.markdown('<div class="note"><b>Why government is a scenario and private is a '
                 'curve.</b> Government seats moved twenty five in four years, so they '
                 'are modelled as a policy decision, not a trend. Private seats follow a '
@@ -756,17 +797,18 @@ if section == "Exits":
                                 [("Retirement", R["retirements"]),
                                  ("Mortality", R["deaths"]),
                                  ("Migration and out of state", R["migration"])],
-                                proj_years,
+                                proj_years, pop=R["population"] if show_pop else None,
                                 subtitle="Migration dominates. The 2010s expansion cohorts "
                                          "do not reach 60 within this window."),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
     with b:
         st.plotly_chart(chart("Entrants against exits", "People per year",
                               [("Entrants", R["entrants"]),
                                ("Total exits", R["exits"])],
                               [y for y in proj_years if y >= 2015],
+                              pop=R["population"] if show_pop else None,
                               subtitle="The gap between the two is why the stock compounds."),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
     cum_r = sum(R["retirements"][y] for y in proj_years if y >= 2026)
     cum_d = sum(R["deaths"][y] for y in proj_years if y >= 2026)
     cum_m = sum(R["migration"][y] for y in proj_years if y >= 2026)
@@ -808,8 +850,9 @@ if section == "Other cadres":
     with a:
         st.plotly_chart(chart("Qualified output by cadre group", "People per year",
                               [(g, gser[g]) for g in groups], cy, fill_first=False,
+                              pop=R["population"] if show_pop else None,
                               subtitle="Annual qualifications, not practising staff."),
-                        width="stretch")
+                        width="stretch", config=PLOTLY_CONFIG)
     with b:
         fills = sorted(((v["fill"], k) for k, v in C["results"].items()))
         fig = go.Figure(go.Bar(
@@ -824,12 +867,12 @@ if section == "Other cadres":
                             "overstate real output.</span>",
                        font=dict(size=15.5, color="#1d2a33"), x=0, xanchor="left"),
             height=455, plot_bgcolor="white", paper_bgcolor="white",
-            font=dict(family="Source Serif 4, serif", size=11, color="#1d2a33"),
+            font=dict(family="Times New Roman, Georgia, serif", size=11, color="#1d2a33"),
             margin=dict(l=190, r=40, t=76, b=46),
             xaxis=dict(title="Per cent of sanctioned seats filled", gridcolor="#eef1f4",
                        linecolor="#c8d1d8", range=[0, 105]),
             yaxis=dict(linecolor="#c8d1d8"))
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, width="stretch", config=PLOTLY_CONFIG)
     st.markdown('<div class="note"><b>Fill rates outside medicine are nothing like '
                 'medicine.</b> MBBS fills 99 per cent of sanctioned seats. Post Basic '
                 'BSc Nursing fills 48 per cent and MSc Nursing 59 per cent. Any plan '
@@ -882,7 +925,7 @@ if section == "Sensitivity":
                                       subtitle="Anchor years: " + ", ".join(
                                           f"{y}: {v * mult:.{2 if pct else 0}f}"
                                           for y, v in sorted(getattr(P, k).items()))),
-                                width="stretch")
+                                width="stretch", config=PLOTLY_CONFIG)
     else:
         st.markdown('<div class="note">Every rate is constant over the projection, as '
                     'published. To let a rate change over time, turn on "Edit '
@@ -964,13 +1007,15 @@ if section == "Assumptions":
          "adjustment is a judgment, not a measured differential.", "Low priority"),
         ("Retirement participation", "100% under 60, then 85, 60, 30, 12, 3", "ASSUMED",
          "Reasoned from retirement at 60 in government service.", "Low priority"),
-        (("Population after 2025", f"growing {P.pop_growth_rate:.2%} a year", "ASSUMED",
-          "Continued growth chosen in the sidebar in place of the NCP plateau. The "
-          "WHO requirement rises with it.", "Moderate: moves the denominator")
+        (("Population after 2025", f"growing {P.pop_growth_rate:.2%} a year", "OWN CHOICE",
+          "The NCP series is used to 2025, then its own 2021 to 2025 rate is held "
+          "constant, so the WHO requirement rises with the population. The NCP "
+          "series itself plateaus from 2031.", "Moderate: moves the denominator")
          if P.pop_path == "growth" else
-         ("Population growth beyond 2036", f"falling to {P.pop_growth_2050:.2%}", "ASSUMED",
-          "Our own extension. The official series stops at 2036.",
-          "Low impact, under 2 per cent on the denominator")),
+         ("Population after 2025", "NCP plateau, then falling to "
+          f"{P.pop_growth_2050:.2%}", "ASSUMED",
+          "The NCP series to 2036, then our own extension.",
+          "Moderate: moves the denominator")),
         ("Foreign graduate ceiling", f"{P.fmg_ceiling:,.0f} per year", "ASSUMED",
          "Roughly double the 2025 level.", "Low priority"),
         ("Completion rate",
@@ -1018,8 +1063,9 @@ if section == "Data and sources":
         ("DERIVED", "Deemed overlap, 806 per year from 2031",
          "850 seats x 0.998 fill x 0.95 completion"),
         ("DERIVED", "WHO doctor requirement, 11.125 per 10,000", "44.5 x 0.25"),
-        ("EXTERNAL SOURCE", "Population 2011 to 2036",
-         "National Commission on Population and MoHFW (2019), used verbatim"),
+        ("EXTERNAL SOURCE", "Population 2011 to 2025",
+         "National Commission on Population and MoHFW (2019), used verbatim to 2025; "
+         "its 2021 to 2025 rate is then held constant"),
         ("EXTERNAL SOURCE", "WHO density norm 44.5 and doctor share one quarter",
          "WHO, Global Strategy on HRH: Workforce 2030 (2016)"),
         ("SCRAPED BY US", "TNMC register, 193,264 doctors, 1927 to 2025",
@@ -1045,7 +1091,8 @@ if section == "Data and sources":
     st.markdown("### Current parameter set")
     st.dataframe(pd.DataFrame([{"Parameter": k,
                                 "Value": (", ".join(f"{yy}: {vv:g}" for yy, vv in sorted(v.items()))
-                                          if isinstance(v, dict) else v)}
+                                          if isinstance(v, dict) else
+                                          f"{v:g}" if isinstance(v, float) else str(v))}
                                for k, v in P.to_dict().items()
                                if not isinstance(v, list)]),
                  width="stretch", hide_index=True, height=300)

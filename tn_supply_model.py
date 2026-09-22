@@ -52,17 +52,18 @@ NCP = {2011:72147,2012:72645,2013:73142,2014:73640,2015:74137,2016:74635,
        2029:77868,2030:77975,2031:78082,2032:78079,2033:78076,2034:78073,
        2035:78070,2036:78067}  # thousands
 
+POP_LAST_NCP = 2025          # last NCP value used verbatim
+POP_GROWTH = (NCP[2025] / NCP[2021]) ** 0.25 - 1.0     # NCP 2021-2025 rate, ~0.30%/yr
+
 def build_population():
-    """NCP to 2036; beyond that the growth rate declines linearly to -0.35%/yr
-    by 2050, reflecting demographic momentum exhausting at TFR ~1.4.
-    The NCP tail is itself a flat -3,000/yr linear stub, so it is not extended
-    mechanically."""
-    pop = {y: NCP[y] * 1000.0 for y in NCP}
-    g0 = (NCP[2036] - NCP[2035]) / NCP[2035]      # ~-0.0038%/yr
-    g1 = -0.0035                                   # -0.35%/yr by 2050
-    for i, y in enumerate(range(2037, 2051), start=1):
-        g = g0 + (g1 - g0) * (i / 14.0)
-        pop[y] = pop[y - 1] * (1 + g)
+    """NCP values verbatim to 2025, the last observed year of the model. From
+    2026 the population grows at the NCP series' own 2021 to 2025 average rate,
+    held constant, so the WHO requirement keeps rising with the population.
+    The NCP series itself plateaus near 78 million from 2031; that plateau is
+    kept as an alternative path in the dashboard."""
+    pop = {y: NCP[y] * 1000.0 for y in NCP if y <= POP_LAST_NCP}
+    for y in range(POP_LAST_NCP + 1, 2051):
+        pop[y] = pop[y - 1] * (1 + POP_GROWTH)
     return np.array([pop[y] for y in YEARS])
 
 POP = build_population()
@@ -585,7 +586,7 @@ emit("\n\nPOPULATION SPINE")
 emit("-" * 78)
 for y in (2025, 2031, 2036, 2040, 2050):
     emit(f"    {y}: {POP[IDX[y]]/1e6:>6.2f} million"
-         + ("   (NCP official)" if y <= 2036 else "   (momentum-exhausted extension)"))
+         + ("   (NCP official)" if y <= 2025 else "   (NCP 2021-2025 rate held)"))
 
 with open("tn_projection_2050_summary.txt", "w") as f:
     f.write("\n".join(lines) + "\n")
