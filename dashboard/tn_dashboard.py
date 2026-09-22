@@ -13,6 +13,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 import tn_engine as E
 
@@ -145,24 +146,52 @@ PLOTLY_CONFIG = dict(responsive=True, displayModeBar=False, displaylogo=False)
 POP_COLOUR = "#6C3FA0"     # population, wherever it appears
 
 
-def _add_population(fig, x, pop):
-    """Population in millions on a right-hand axis, the same colour on every chart."""
+def _with_population(fig, x, pop, xr):
+    """Rebuild a finished chart as two panels: the chart on top, the population
+    beneath on its own axis that starts at zero. The two quantities are never
+    drawn against one another, so a line for 83 million people can never
+    appear to sit below a line for 500,000 doctors, and the population's true
+    slope (under 8 per cent over the period) is shown as it is."""
+    sub = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.74, 0.26],
+                        vertical_spacing=0.07)
+    for tr in fig.data:
+        sub.add_trace(tr, row=1, col=1)
     yv = [pop.get(k) / 1e6 if pop.get(k) is not None else None for k in x]
-    fig.add_trace(go.Scatter(
-        x=x, y=yv, name="Population, millions", mode="lines", yaxis="y2",
-        line=dict(color=POP_COLOUR, width=1.8, dash="dashdot", shape="spline", smoothing=0.35),
-        hovertemplate="%{y:,.2f} m<extra>Population</extra>"))
-    fig.add_annotation(
-        x=x[-1], y=yv[-1], yref="y2", text=f"<b>{yv[-1]:,.1f} m</b>", showarrow=False,
-        xanchor="left", xshift=8, bgcolor="rgba(255,255,255,0.85)",
-        font=dict(size=11, color=POP_COLOUR))
-    lo = min(v for v in yv if v is not None)
-    fig.update_layout(
-        yaxis2=dict(title=dict(text="Population, millions", font=dict(size=11, color=POP_COLOUR)),
-                    overlaying="y", side="right", showgrid=False, zeroline=False,
-                    tickfont=dict(size=11, color=POP_COLOUR), tickformat=",.0f",
-                    range=[lo * 0.85, max(v for v in yv if v is not None) * 1.08]),
-        margin=dict(r=118))
+    sub.add_trace(go.Scatter(
+        x=x, y=yv, name="Population, millions", mode="lines",
+        line=dict(color=POP_COLOUR, width=2.2, shape="spline", smoothing=0.35),
+        fill="tozeroy", fillcolor="rgba(108,63,160,0.07)",
+        hovertemplate="%{y:,.2f} million<extra>Population</extra>"), row=2, col=1)
+
+    L = fig.layout
+    sub.update_layout(
+        title=L.title, height=L.height + 130, plot_bgcolor="white", paper_bgcolor="white",
+        font=L.font, margin=L.margin, hovermode=L.hovermode, hoverlabel=L.hoverlabel,
+        legend=L.legend)
+    ax = dict(showgrid=False, linecolor="#c8d1d8", ticks="outside", tickcolor="#c8d1d8",
+              tickfont=dict(size=11.5), range=xr, dtick=10)
+    sub.update_xaxes(**ax)
+    sub.update_xaxes(showticklabels=False, ticks="", row=1, col=1)
+    sub.update_yaxes(L.yaxis.to_plotly_json(), row=1, col=1)
+    top = max(v for v in yv if v is not None)
+    sub.update_yaxes(title=dict(text="Population, millions", font=dict(size=11, color=POP_COLOUR)),
+                     range=[0, top * 1.25], gridcolor="#eef1f4", linecolor="#c8d1d8",
+                     ticks="outside", tickcolor="#c8d1d8", tickformat=",.0f",
+                     tickfont=dict(size=11, color=POP_COLOUR), zeroline=False, row=2, col=1)
+    for ann in L.annotations:
+        sub.add_annotation(ann)
+    if x[-1] > SPLIT:
+        sub.add_vrect(x0=max(SPLIT, x[0]), x1=x[-1], fillcolor="#0F4761", opacity=0.045,
+                      layer="below", line_width=0, row="all", col=1)
+        sub.add_vline(x=SPLIT, line=dict(color="#9aa7b1", width=1, dash="dot"),
+                      row="all", col=1)
+    sub.add_annotation(x=x[-1], y=yv[-1], xref="x2", yref="y2", text=f"<b>{yv[-1]:,.1f} m</b>",
+                       showarrow=False, xanchor="left", xshift=8,
+                       bgcolor="rgba(255,255,255,0.85)", font=dict(size=11, color=POP_COLOUR))
+    sub.add_annotation(x=x[0], y=yv[0], xref="x2", yref="y2", text=f"{yv[0]:,.1f} m",
+                       showarrow=False, xanchor="left", yanchor="bottom", yshift=4,
+                       font=dict(size=10.5, color=POP_COLOUR))
+    return sub
 
 
 def chart(title, ylab, series, x, annotate=True, height=455, subtitle=None, fill_first=True,
@@ -202,10 +231,10 @@ def chart(title, ylab, series, x, annotate=True, height=455, subtitle=None, fill
                 font=dict(size=11.5, color=colr))
     _shade_projection(fig, x)
     pad = max(1.5, (x[-1] - x[0]) * 0.055)
-    fig = _layout(fig, title, ylab, height, subtitle, zero=fill_first,
-                  xr=[x[0] - 0.4, x[-1] + pad])
+    xr = [x[0] - 0.4, x[-1] + pad]
+    fig = _layout(fig, title, ylab, height, subtitle, zero=fill_first, xr=xr)
     if pop is not None:
-        _add_population(fig, x, pop)
+        fig = _with_population(fig, x, pop, xr)
     return fig
 
 
@@ -221,7 +250,7 @@ def stacked(title, ylab, series, x, height=455, subtitle=None, pop=None):
     _shade_projection(fig, x)
     fig = _layout(fig, title, ylab, height, subtitle, zero=True, xr=[x[0], x[-1]])
     if pop is not None:
-        _add_population(fig, x, pop)
+        fig = _with_population(fig, x, pop, [x[0], x[-1]])
     return fig
 
 
@@ -267,8 +296,8 @@ pop_path = st.sidebar.selectbox(
          "own recent rate held constant. Alternative: the NCP series itself, which "
          "plateaus from 2031.")
 show_pop = st.sidebar.toggle("Show population on charts", value=True, key="show_pop",
-                             help="Adds the population in millions on a right-hand axis, "
-                                  "in the same colour on every chart.")
+                             help="Adds a panel under each chart with the population in "
+                                  "millions, on its own axis from zero.")
 pop_rate = D.pop_growth_rate
 if pop_path == "growth":
     pop_rate = st.sidebar.slider("Population growth per year", 0.0, 0.015,
@@ -537,8 +566,9 @@ if section == "Doctors":
                               series, proj_years, pop=R["population"] if show_pop else None,
                               subtitle=("Dashed grey is the published baseline."
                                         if not is_default else
-                                        "The WHO figure is a floor for basic coverage, "
-                                        "not a target.")),
+                                        "WHO requirement is 11.1 per 10,000 times the "
+                                        "population, so both rise 7.7 per cent by 2050. "
+                                        "It is a floor, not a target.")),
                         width="stretch", config=PLOTLY_CONFIG)
     with b:
         series = [("Modelled density", R["density"])]
