@@ -79,7 +79,11 @@ DEFAULT_PARTICIPATION = [(60, 1.00), (65, 0.85), (70, 0.60), (75, 0.30),
 class Params:
     """Every assumption in the doctor model. Defaults are the validated values."""
     end_year: int = 2050
-    # Population
+    # Population. "ncp": the NCP 2019 series to 2036, then growth easing to
+    # pop_growth_2050. "growth": the NCP series to 2025, then a fixed annual
+    # rate, so the WHO requirement keeps rising with the population.
+    pop_path: str = "ncp"
+    pop_growth_rate: float = 0.003
     pop_growth_2050: float = -0.0035
     # Government seats
     gov_2025: float = 5200.0
@@ -257,6 +261,11 @@ def _band(bands, age):
 
 
 def population(p: Params) -> dict:
+    if p.pop_path == "growth":
+        pop = {y: NCP_POP[y] * 1000.0 for y in NCP_POP if y <= 2025}
+        for y in range(2026, p.end_year + 1):
+            pop[y] = pop[y - 1] * (1 + p.pop_growth_rate)
+        return pop
     pop = {y: NCP_POP[y] * 1000.0 for y in NCP_POP}
     g0 = (NCP_POP[2036] - NCP_POP[2035]) / NCP_POP[2035]
     span = max(1, p.end_year - 2036)

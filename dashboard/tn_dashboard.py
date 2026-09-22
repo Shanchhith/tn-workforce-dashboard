@@ -227,6 +227,20 @@ pvt_choice = st.sidebar.selectbox(
 gov_target_d, gov_year_d = E.GOV_SCENARIOS[gov_choice]
 pvt_K_d, pvt_r_d, pvt_t0_d = E.PVT_SCENARIOS[pvt_choice]
 
+POP_PATHS = {"ncp": "NCP 2019 projection, plateau near 78 million",
+             "growth": "Continued growth at a fixed rate"}
+pop_path = st.sidebar.selectbox(
+    "Population after 2025", list(POP_PATHS.keys()), index=0, key="pop_path",
+    format_func=lambda k: POP_PATHS[k],
+    help="The WHO requirement is a fixed density times population, so it rises "
+         "only if the population does. The official NCP series plateaus from 2031. "
+         "The second option keeps the population growing at the rate below.")
+pop_rate = D.pop_growth_rate
+if pop_path == "growth":
+    pop_rate = st.sidebar.slider("Population growth per year", 0.0, 0.015,
+                                 D.pop_growth_rate, 0.0005, format="%.4f", key="pop_rate",
+                                 help="0.0030 is the NCP series' own 2021 to 2025 rate.")
+
 adv = st.sidebar.toggle("Edit individual assumptions", value=False, key="adv",
                         help="Off: the scenario above sets everything. "
                              "On: every parameter becomes editable.")
@@ -378,6 +392,7 @@ def _rate(schedule, constant):
 
 P = E.Params(
     end_year=int(end_year), pop_growth_2050=pop_g,
+    pop_path=pop_path, pop_growth_rate=float(pop_rate),
     gov_target=float(gov_target), gov_target_year=gov_year,
     pvt_ceiling=float(pvt_K), pvt_growth_r=float(pvt_r), pvt_midpoint=float(pvt_t0),
     pg_slope=float(pg_slope), pg_cap_share=float(pg_cap),
@@ -948,9 +963,13 @@ if section == "Assumptions":
          "adjustment is a judgment, not a measured differential.", "Low priority"),
         ("Retirement participation", "100% under 60, then 85, 60, 30, 12, 3", "ASSUMED",
          "Reasoned from retirement at 60 in government service.", "Low priority"),
-        ("Population growth beyond 2036", f"falling to {P.pop_growth_2050:.2%}", "ASSUMED",
-         "Our own extension. The official series stops at 2036.",
-         "Low impact, under 2 per cent on the denominator"),
+        (("Population after 2025", f"growing {P.pop_growth_rate:.2%} a year", "ASSUMED",
+          "Continued growth chosen in the sidebar in place of the NCP plateau. The "
+          "WHO requirement rises with it.", "Moderate: moves the denominator")
+         if P.pop_path == "growth" else
+         ("Population growth beyond 2036", f"falling to {P.pop_growth_2050:.2%}", "ASSUMED",
+          "Our own extension. The official series stops at 2036.",
+          "Low impact, under 2 per cent on the denominator")),
         ("Foreign graduate ceiling", f"{P.fmg_ceiling:,.0f} per year", "ASSUMED",
          "Roughly double the 2025 level.", "Low priority"),
         ("Completion rate",
