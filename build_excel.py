@@ -92,6 +92,22 @@ def basis(y):
 
 
 # ---------------------------------------------------------------- Contents
+# ------------------------------------------------------------ citations
+# Full references, written once and used wherever a source is named.
+CITE_LIU = ("Liu JX, Goryakin Y, Maeda A, Bruckner T, Scheffler RM. Global Health "
+            "Workforce Labor Market Projections for 2030. Human Resources for Health. "
+            "2017;15:11. doi:10.1186/s12960-017-0187-2. First issued as World Bank Policy "
+            "Research Working Paper 7790, Washington DC: World Bank; 2016.")
+CITE_WHO_GS = ("World Health Organization. Global Strategy on Human Resources for Health: "
+               "Workforce 2030. Geneva: WHO; 2016.")
+CITE_WHO_HLMA = ("World Health Organization. Health Labour Market Analysis Guidebook. "
+                 "Geneva: WHO; 2021.")
+CITE_NCP = ("National Commission on Population, Ministry of Health and Family Welfare. "
+            "Population Projections for India and States 2011-2036: Report of the "
+            "Technical Group on Population Projections. New Delhi: Government of India; "
+            "July 2019.")
+
+
 ws = new_sheet("Contents")
 write_table(ws,
     ["Sheet", "Contents"],
@@ -140,8 +156,7 @@ V = [
   "(1 + g), where g is the NCP series' own 2021 to 2025 average annual rate, "
   "0.298 per cent, held constant (Inputs B28).",
   "NCP published table, 15 annual values to 2025",
-  "National Commission on Population / MoHFW, Population Projections for India and "
-  "States 2011-2036 (2019). The NCP series itself plateaus near 78 million from 2031; "
+  CITE_NCP + " The NCP series itself plateaus near 78 million from 2031; "
   "holding its recent rate instead is our choice so that the WHO requirement keeps "
   "rising with the population. Code: build_population()"),
  ("Government MBBS seats", "Sanctioned MBBS seats in government colleges, state "
@@ -229,11 +244,24 @@ V = [
   "covers doctors, nurses and midwives together; doctors are one quarter of it on the "
   "1:3 doctor-to-nurse split.",
   "Population series; two published norm constants",
-  "WHO, Global Strategy on Human Resources for Health: Workforce 2030 (2016) for "
-  "44.5; WHO (2016) for the 1:3 split. Code: lines 394-396"),
+  CITE_WHO_GS + " for 44.5; the same source for the 1:3 doctor to nurse split. "
+  "Code: NEED_DOCTORS"),
  ("Surplus vs WHO need", "How far actual supply runs above or below the WHO floor.",
   "Active doctors - WHO need. Positive means supply exceeds the floor.", "n/a",
   "Derived"),
+ ("World Bank demand (doctors)", "The number of doctors the economy would absorb, on "
+  "the World Bank health labour market demand model. Rises with income, ageing and "
+  "the shift away from out-of-pocket payment. A demand line, not a norm.",
+  "ln(physicians per 1,000) = -9.882 + 0.231 ln GDPpc(t-1) + 0.531 ln GDPpc(t-4) "
+  "- 0.518 ln GDPpc(t-5) - 0.099 ln OOPpc(t-2) + 0.516 ln Pop65(t-3) + country effect "
+  "(Table 1). The country effect pins the level, so the series is anchored on the "
+  "modelled 2025 density and moved each year by the three drivers: density(t) = "
+  "density(t-1) x (1+g)^0.244 x (1+g+adj)^-0.099 x (1+p65)^0.516, times population. "
+  "Inputs B32 to B38.",
+  "Published elasticities; three assumed growth paths (Inputs B35 to B38)",
+  CITE_LIU + " Code: build_wb_demand()"),
+ ("Surplus vs WB demand", "How far supply runs above what the economy would absorb.",
+  "Active doctors - World Bank demand.", "n/a", "Derived"),
 ]
 end = write_table(ws,
     ["Variable", "What it is", "How it is computed", "Input data",
@@ -310,6 +338,23 @@ INP = [
   "CALIBRATED, not observed. See Sensitivity sheet"),
  ("Age at registration", m.AGE_AT_REG, "years",
   "INFERRED, not observed. See Age sensitivity sheet"),
+ ("WB demand: income elasticity", m.WB_E_GDP, "elasticity",
+  "PUBLISHED. Sum of the three GDP per capita lags in Table 1, 0.231 + 0.531 - 0.518, "
+  "of " + CITE_LIU),
+ ("WB demand: out-of-pocket elasticity", m.WB_E_OOP, "elasticity",
+  "PUBLISHED. Table 1 of Liu et al. 2017 (full reference in row 32)"),
+ ("WB demand: population 65+ elasticity", m.WB_E_POP65, "elasticity",
+  "PUBLISHED. Table 1 of Liu et al. 2017 (full reference in row 32)"),
+ ("WB demand: real GSDP per capita growth, 2026", m.WB_GDP_G_2026, "per year",
+  "ASSUMED, FOR STATE CONFIRMATION. Recent Tamil Nadu real GSDP growth less population "
+  "growth. See Assumptions sheet"),
+ ("WB demand: real GSDP per capita growth, 2050", m.WB_GDP_G_2050, "per year",
+  "ASSUMED, FOR STATE CONFIRMATION. The 2026 rate eases linearly to this by 2050"),
+ ("WB demand: OOP growth less GDP growth", m.WB_OOP_ADJ, "per year",
+  "ASSUMED. Zero holds the out-of-pocket share of spending constant"),
+ ("WB demand: growth of population aged 65+", m.WB_POP65_G, "per year",
+  "ASSUMED, FOR STATE CONFIRMATION. To be replaced by the NCP 2019 age tables for "
+  "Tamil Nadu"),
 ]
 write_table(ws, ["Parameter", "Value", "Unit", "Basis and source"],
             [[a, b, c_, d] for a, b, c_, d in INP], [42, 14, 24, 62])
@@ -325,7 +370,9 @@ for i, fmt in [(2, "0.0"), (3, "0.00"), (4, "0.000"), (5, "0.000"), (6, "0.00"),
                (12, "#,##0"), (13, "#,##0"), (14, "0"), (15, "#,##0"), (16, "#,##0"),
                (17, "#,##0"), (18, "#,##0"), (19, "0.000"), (20, "0.00"), (21, "#,##0"),
                (22, "#,##0"), (23, "0"), (24, "#,##0"), (25, "0.0"), (26, "0.00"),
-               (27, "#,##0"), (28, "0.00000"), (29, "0"), (30, "0.000"), (31, "0")]:
+               (27, "#,##0"), (28, "0.00000"), (29, "0"), (30, "0.000"), (31, "0"),
+               (32, "0.000"), (33, "0.000"), (34, "0.000"), (35, "0.000"), (36, "0.000"),
+               (37, "0.000"), (38, "0.000")]:
     ws.cell(row=i, column=2).number_format = fmt
 IN = "Inputs!"
 
@@ -347,9 +394,10 @@ HEAD = ["Year", "Basis", "Population", "Government MBBS seats", "Private MBBS se
         "Foreign medical graduates", "Entrants to register", "Retirements", "Deaths",
         "Migration", "Total exits", "Net change", "Active doctors",
         "Doctors per 10,000", "PG qualified output", "Specialist exits",
-        "Active specialists", "WHO need (doctors)", "Surplus vs WHO need"]
+        "Active specialists", "WHO need (doctors)", "Surplus vs WHO need",
+        "World Bank demand (doctors)", "Surplus vs WB demand"]
 write_table(ws, HEAD, [], [7, 10, 12, 13, 12, 12, 10, 12, 11, 13, 12, 11, 9, 11,
-                           10, 10, 12, 11, 12, 11, 12, 12, 13])
+                           10, 10, 12, 11, 12, 11, 12, 12, 13, 14, 13])
 
 def RW(y):
     return y - 2009            # 2011 -> row 2
@@ -432,7 +480,19 @@ for i, y in enumerate(YEARS):
         ws.cell(row=r, column=21, value=f"=U{r-1}+S{r}-T{r}")
     ws.cell(row=r, column=22, value=f"=C{r}*{IN}$B$2*{IN}$B$3/10000")
     ws.cell(row=r, column=23, value=f"=Q{r}-V{r}")
-    for j in range(1, 24):
+    # X, Y: World Bank demand, anchored on the modelled 2025 stock, then moved by
+    # GDP per capita, out-of-pocket spending and the 65+ population with the
+    # published elasticities. Density recursion, times population.
+    if y == m.WB_ANCHOR:
+        ws.cell(row=r, column=24, value=f"=Q{r}")
+        ws.cell(row=r, column=25, value=f"=Q{r}-X{r}")
+    elif y > m.WB_ANCHOR:
+        gg = f"({IN}$B$35+({IN}$B$36-{IN}$B$35)*(A{r}-2026)/24)"
+        ws.cell(row=r, column=24,
+                value=f"=X{r-1}/C{r-1}*C{r}*(1+{gg})^{IN}$B$32"
+                      f"*(1+{gg}+{IN}$B$37)^{IN}$B$33*(1+{IN}$B$38)^{IN}$B$34")
+        ws.cell(row=r, column=25, value=f"=Q{r}-X{r}")
+    for j in range(1, 26):
         cl = ws.cell(row=r, column=j)
         cl.font = BODY
         if j >= 3:
@@ -455,7 +515,7 @@ style_chart(ch, "Doctors per 10,000"); mono_lines(ch)
 ws.add_chart(ch, "Y23")
 
 for k, t in enumerate([
- "Every cell in columns F, H, K, O, P, Q, R, S, U, V and W is a live formula. "
+ "Every cell in columns F, H, K, O, P, Q, R, S, U, V, W, X and Y is a live formula. "
  "Change any parameter on the Inputs sheet and this sheet recalculates.",
  "Typed numbers appear only where a formula is not possible: published population "
  "(column C to 2025), observed seats and registrations to 2025,",
@@ -989,6 +1049,19 @@ A = [
   "consequential single parameter.",
   "Resolvable with data. The NMC removedStatus field records removals from the "
   "register and would allow this to be estimated rather than calibrated."),
+ ("World Bank demand line: growth paths of its three drivers",
+  "ASSUMED, FOR STATE CONFIRMATION",
+  "The elasticities are published (" + CITE_LIU + ", Table 1): 0.244 to real GDP "
+  "per capita in the long run, -0.099 to out-of-pocket spending per capita, 0.516 to "
+  "the population aged 65 and over. What is assumed is the path of the drivers: real "
+  "GSDP per capita growth of 6.5 per cent in 2026 easing to 4.0 per cent by 2050, "
+  "out-of-pocket spending growing with GDP (share constant), and the 65+ population "
+  "growing 3.5 per cent a year. The State's own GSDP forecast and the NCP 2019 age "
+  "tables should replace these. The line is anchored on the modelled 2025 density, "
+  "which is how the paper's country fixed effect works.",
+  "Moderate. Demand reaches 305,668 by 2050 on these paths; supply is 517,657. A "
+  "faster economy raises the line, but with an elasticity of 0.244 it would take "
+  "implausible growth to close the gap."),
  ("Population growth beyond 2025, 0.30 per cent a year held constant",
   "OWN CHOICE, RATE FROM NCP",
   "The NCP series is used verbatim to 2025. Its 2021 to 2025 average rate is then "
@@ -1053,8 +1126,7 @@ for k, t in enumerate([
 ws = new_sheet("Parameters")
 P = [
  ("Population", "NCP projection 2011-2025", "72.1M to 77.3M",
-  "National Commission on Population / MoHFW, Population Projections for India "
-  "and States 2011-2036 (2019). Used verbatim to 2025."),
+  CITE_NCP + " Used verbatim to 2025."),
  ("Population", "Growth rate beyond 2025", "0.298%/yr, held constant to 2050",
   "The NCP series' own 2021 to 2025 rate. Gives 83.3M in 2050. The NCP plateau "
   "(76.0M in 2050) is the alternative path in the dashboard."),
@@ -1130,17 +1202,27 @@ for i in range(2, end):
     ws.row_dimensions[i].height = 30
 
 # ------------------------------------------------------------- Methodology
+P += [
+ ("Demand benchmark", "Income elasticity", "0.244 (0.231 + 0.531 - 0.518)",
+  "Table 1 of " + CITE_LIU),
+ ("Demand benchmark", "Out-of-pocket elasticity", "-0.099", "Table 1, Liu et al. 2017"),
+ ("Demand benchmark", "Population 65+ elasticity", "0.516", "Table 1, Liu et al. 2017"),
+ ("Demand benchmark", "Real GSDP per capita growth", "6.5%/yr in 2026 easing to 4.0%/yr by 2050",
+  "ASSUMED, FOR STATE CONFIRMATION. Replace with the State's forecast."),
+ ("Demand benchmark", "Growth of population aged 65+", "3.5%/yr",
+  "ASSUMED, FOR STATE CONFIRMATION. Replace with the NCP 2019 age tables."),
+ ("Demand benchmark", "Anchor", "Modelled 2025 density, 19.6 per 10,000",
+  "The paper's country fixed effect pins the level; the drivers move it from there."),
+]
 ws = new_sheet("Methodology")
 M = [
  ("Framework",
   "A stock-and-flow supply model with an explicit education pipeline, following the "
-  "WHO / World Bank Health Labour Market Framework as operationalised in Liu, "
-  "Goryakin, Maeda, Bruckner and Scheffler, Global Health Workforce Labor Market "
-  "Projections for 2030 (World Bank Policy Research Working Paper 7790; Human "
-  "Resources for Health 2017;15:11), and in the WHO Health Labour Market Analysis "
-  "Guidebook (2021). The same three-lens structure, Supply, Need and Demand, used in "
-  "the Centre's Andhra Pradesh projection. This round builds the Supply lens for "
-  "Tamil Nadu and extends the horizon to 2050."),
+  "WHO / World Bank Health Labour Market Framework as operationalised in " + CITE_LIU +
+  " and in " + CITE_WHO_HLMA + " The same three-lens structure, Supply, Need and "
+  "Demand, used in the Centre's Andhra Pradesh projection. This round builds the "
+  "Supply lens for Tamil Nadu to 2050, sets it against the WHO need floor, and adds "
+  "the World Bank demand line from the same paper."),
  ("Why not CAGR",
   "Growth forms were tested, not assumed. Comparing a levels-linear fit against a "
   "log-linear (CAGR) fit on a common scale, RMSE in seats, since a log model's "
@@ -1167,6 +1249,15 @@ M = [
   "grows at the NCP series' own 2021 to 2025 rate, 0.298% per year, held constant. "
   "Result: 77.32 million in 2025, 79.89 million in 2036, 83.29 million in 2050. The "
   "NCP plateau near 78 million is kept as an alternative path in the dashboard."),
+ ("Module 6b, demand benchmark",
+  "Doctors the economy would absorb, on the demand model of Liu et al. 2017: "
+  "ln(physicians per 1,000) = -9.882 + 0.231 ln GDPpc(t-1) + 0.531 ln GDPpc(t-4) "
+  "- 0.518 ln GDPpc(t-5) - 0.099 ln OOPpc(t-2) + 0.516 ln Pop65(t-3) + country effect, "
+  "estimated by GLM with country fixed effects on 165 countries, 1990 to 2013. The "
+  "country effect pins the level, so the line is anchored on Tamil Nadu's modelled "
+  "2025 density and moved by the three drivers, whose growth paths are assumptions "
+  "marked for State confirmation. Result: 151,248 in 2025, 233,187 in 2040, 305,668 "
+  "in 2050. Supply exceeds it throughout; the gap is 211,989 doctors in 2050."),
  ("Module 2, seats",
   "Government and private modelled separately because they are on different "
   "trajectories. Government is a step and scenario process. Private follows bounded "
@@ -1356,8 +1447,13 @@ P2 = [
  ("ASSUMED BY US, NO SOURCE", "Completion rate, 9 of 20 other cadres", "91 per cent",
   "Median of the 11 cadres where it could be observed"),
  ("EXTERNAL PUBLISHED SOURCE", "Population 2011 to 2025", "72.1M to 77.3M",
-  "National Commission on Population and MoHFW, Population Projections for India and "
-  "States 2011-2036 (2019). Used verbatim to 2025, 15 values"),
+  CITE_NCP + " Used verbatim to 2025, 15 values"),
+ ("EXTERNAL PUBLISHED SOURCE", "World Bank demand elasticities",
+  "0.244 income, -0.099 out-of-pocket, 0.516 population 65+",
+  "Table 1 of " + CITE_LIU),
+ ("ASSUMED BY US, FOR STATE CONFIRMATION", "World Bank demand driver paths",
+  "GSDP per capita 6.5% easing to 4.0%; OOP share constant; 65+ population 3.5%/yr",
+  "Our own. To be replaced by the State's GSDP forecast and the NCP 2019 age tables"),
  ("EXTERNAL PUBLISHED SOURCE", "WHO density norm", "44.5 per 10,000",
   "WHO, Global Strategy on HRH: Workforce 2030 (2016)"),
  ("EXTERNAL PUBLISHED SOURCE", "Doctor share of the norm", "One quarter",
@@ -1442,7 +1538,7 @@ S = [
  ("Published source", "Population Projections for India and States 2011-2036",
   "National Commission on Population, MoHFW", "2011-2036",
   "The population spine, denominator for every density figure",
-  "https://nhm.gov.in/New_Updates_2018/Report_Population_Projection_2019.pdf",
+  CITE_NCP + " https://nhm.gov.in/New_Updates_2018/Report_Population_Projection_2019.pdf",
   "Verified via Wayback mirror; live link returns 403"),
  ("Published source", "Health and Family Welfare Policy Note 2025-26",
   "Govt. of Tamil Nadu", "2025-26", "Current facility counts and budget context",
@@ -1478,17 +1574,21 @@ S = [
   "district split.", "https://www.iipsindia.ac.in/sites/default/files/"
   "FULL_REPORT_WITH_FINAL_TABLES.pdf", "Not pursued"),
  ("Method reference", "Global Health Workforce Labor Market Projections for 2030",
-  "Liu, Goryakin, Maeda, Bruckner and Scheffler, World Bank", "2017",
-  "The principal method reference: the supply, need and demand framework",
-  "World Bank Policy Research Working Paper 7790; Human Resources for Health "
-  "2017;15:11", "Method reference"),
+  "Liu JX, Goryakin Y, Maeda A, Bruckner T, Scheffler RM", "2017",
+  "The principal method reference: the supply, need and demand framework, and the "
+  "demand elasticities in Table 1 used for the World Bank demand line",
+  CITE_LIU + " https://doi.org/10.1186/s12960-017-0187-2 ; working paper at "
+  "https://documents1.worldbank.org/curated/en/546161470834083341/pdf/WPS7790.pdf",
+  "Verified, coefficients read from Table 1"),
  ("Method reference", "Health Labour Market Analysis Guidebook",
   "World Health Organization", "2021", "Operational guidance for the framework above",
-  "WHO, Geneva", "Method reference"),
+  CITE_WHO_HLMA + " https://www.who.int/publications/i/item/9789240035546",
+  "Method reference"),
  ("Norm reference",
   "Global Strategy on Human Resources for Health: Workforce 2030",
   "World Health Organization", "2016",
-  "The 44.5 skilled health workers per 10,000 density norm", "WHO, Geneva",
+  "The 44.5 skilled health workers per 10,000 density norm",
+  CITE_WHO_GS + " https://www.who.int/publications/i/item/9789241511131",
   "Norm reference"),
  ("Norm reference", "Health workforce density and distribution",
   "World Health Organization", "2016",

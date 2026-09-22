@@ -23,10 +23,14 @@ health at postgraduate level, on the same pipeline chain.
 
 ## Method
 
-WHO and World Bank Health Labour Market Framework, following Liu, Goryakin,
-Maeda, Bruckner and Scheffler, *Global Health Workforce Labor Market Projections
-for 2030*, World Bank Policy Research Working Paper 7790, published in *Human
-Resources for Health* 2017;15:11.
+WHO and World Bank Health Labour Market Framework. Supply is set against two
+benchmarks from the same framework: the WHO need floor (11.1 doctors per 10,000,
+a quarter of the 44.5 skilled health worker threshold) and the World Bank demand
+line, which rises with income, ageing and the move away from out-of-pocket
+payment using the published elasticities of Liu et al. (2017, Table 1): 0.244 to
+GDP per capita in the long run, -0.099 to out-of-pocket spending, 0.516 to the
+population aged 65 and over. The driver paths are assumptions marked for State
+confirmation and are editable in the sidebar.
 
 Growth is fitted **in levels throughout, never as a compound annual rate**.
 Extrapolating the observed compound rate for private medical seats would give
@@ -61,7 +65,7 @@ This repository contains **no personal data and no raw source workbooks**.
 |---|---|
 | `dashboard/data/register_by_year.csv` | Registrations per year, 1927 to 2025. Ninety nine numbers. |
 | `dashboard/data/cadre_series.json` | Sanctioned seats, admissions and pass-outs per cadre and year. |
-| `TN_Health_Workforce_Projections_2050.xlsx` | The published workbook, 24 sheets, 1,523 live formulas. |
+| `TN_Health_Workforce_Projections_2050.xlsx` | The published workbook, 25 sheets, live formulas throughout. |
 | `tn_projection_2050.csv`, `tn_cadre_projection_2050.csv` | The annual output series. |
 
 **Deliberately excluded.** The scraped medical register held doctor names,
@@ -87,9 +91,19 @@ depend on them.
 Seat and pass-out data from the Tamil Nadu Medical Selection Committee and the
 Tamil Nadu Dr. M.G.R. Medical University. Registrations from the Tamil Nadu
 Medical Council and the National Medical Commission Indian Medical Register.
-Population from the National Commission on Population and MoHFW, *Population
-Projections for India and States 2011-2036* (2019). Density norm from WHO,
-*Global Strategy on Human Resources for Health: Workforce 2030* (2016).
+
+- Liu JX, Goryakin Y, Maeda A, Bruckner T, Scheffler RM. Global Health Workforce
+  Labor Market Projections for 2030. *Human Resources for Health*. 2017;15:11.
+  doi:10.1186/s12960-017-0187-2. First issued as World Bank Policy Research
+  Working Paper 7790, Washington DC: World Bank; 2016.
+- World Health Organization. *Health Labour Market Analysis Guidebook*. Geneva:
+  WHO; 2021.
+- World Health Organization. *Global Strategy on Human Resources for Health:
+  Workforce 2030*. Geneva: WHO; 2016.
+- National Commission on Population, Ministry of Health and Family Welfare.
+  *Population Projections for India and States 2011-2036: Report of the
+  Technical Group on Population Projections*. New Delhi: Government of India;
+  July 2019.
 
 Full provenance, including which figures are observed, fitted, derived or
 assumed, is on the Data and sources and Assumptions tabs of the dashboard.
