@@ -17,6 +17,15 @@ then fill rate, then completion rate, then a course length lag, then the medical
 register. The stock is rolled forward from 201,908 registration records with age
 specific mortality, migration and a retirement participation curve.
 
+**Specialists, by discipline.** The register carries a year of registration and
+no qualification, so the standing stock cannot be cut by discipline from it.
+The Medical Council file does give the flow by speciality and by sex for 2020 to
+2025, across MD, MS, DNB medical broad and DNB surgical broad. Those four sum to
+exactly the PG registrations the model already uses, in all six years, so their
+shares divide the projected specialist stock across 28 disciplines without
+changing the total by a single doctor. It is a split of an aggregate, not a
+model per discipline.
+
 **Twenty other cadres.** Nursing at degree level, dental, pharmacy,
 physiotherapy and occupational therapy, the five AYUSH streams, and allied
 health at postgraduate level, on the same pipeline chain.
@@ -37,6 +46,15 @@ Extrapolating the observed compound rate for private medical seats would give
 roughly 183,700 seats by 2050, which is not credible. Government seats are
 modelled as a policy scenario rather than a trend, because government sets them
 directly and they moved twenty five seats in four years.
+
+## Where every number comes from
+
+Every parameter carries its provenance, in the workbook and on the dashboard,
+using one vocabulary: **TAKEN FROM DATA** (read straight out of a supplied
+file), FITTED, DERIVED, CALIBRATED, INFERRED, PUBLISHED, ASSUMED, POLICY
+SCENARIO. Of the 39 model parameters, 7 are taken from data, 5 fitted and 4
+derived from it, 6 published externally, 16 are ours to defend, and 1 is the
+horizon you choose.
 
 ## Reading it correctly
 
@@ -65,6 +83,7 @@ This repository contains **no personal data and no raw source workbooks**.
 |---|---|
 | `dashboard/data/register_by_year.csv` | Registrations per year, 1927 to 2025. Ninety nine numbers. |
 | `dashboard/data/cadre_series.json` | Sanctioned seats, admissions and pass-outs per cadre and year. |
+| `dashboard/data/pg_registrations_by_speciality.csv` | PG registrations by discipline, year and sex, 2020 to 2025. Counts only. |
 | `TN_Health_Workforce_Projections_2050.xlsx` | The published workbook, 25 sheets, live formulas throughout. |
 | `tn_projection_2050.csv`, `tn_cadre_projection_2050.csv` | The annual output series. |
 

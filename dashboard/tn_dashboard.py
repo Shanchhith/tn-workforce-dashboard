@@ -599,8 +599,8 @@ st.markdown(
        if show_rn and R["revised_need"].get(ey) else "")
     + '</div>', unsafe_allow_html=True)
 
-SECTIONS = ["Doctors", "Compare rates", "Seats and pipeline", "Exits", "Other cadres",
-            "Sensitivity", "Assumptions", "Data and sources"]
+SECTIONS = ["Doctors", "Specialities", "Compare rates", "Seats and pipeline", "Exits",
+            "Other cadres", "Sensitivity", "Assumptions", "Data and sources"]
 # Only the section on screen is built on each rerun, which is what keeps a
 # slider change feeling immediate: one or two charts refresh, not eleven.
 if st.session_state.get("section") not in SECTIONS:
@@ -612,6 +612,12 @@ section = st.segmented_control("Section", SECTIONS, key="section",
 
 # ------------------------------------------------------------------ doctors
 if section == "Doctors":
+    st.caption("PROVENANCE. The stock to 2025 rests on the medical register, TAKEN FROM "
+               "DATA: 193,264 records with a year of registration, cross-checked against "
+               "the Medical Council's own count to within 0.17 per cent. Everything from "
+               "2026 is modelled from seats, fill and completion rates that are "
+               "themselves TAKEN FROM DATA, with the assumptions listed on the "
+               "Assumptions tab.")
     a, b = st.columns(2)
     with a:
         series = [("Active doctors", R["active"])]
@@ -684,6 +690,76 @@ if section == "Doctors":
                                      | {"Per 10,000": "{:,.1f}", "Year": "{:.0f}"}),
                  width="stretch", height=340)
     df_download(doc_df, "Download the doctor series as CSV", "tn_doctors.csv")
+
+# ----------------------------------------------------------------- specialities
+if section == "Specialities":
+    st.markdown("### The specialist stock, divided by discipline")
+    st.markdown('<div class="note"><b>This divides the specialist projection, it does '
+                'not replace it.</b> The medical register records a year of '
+                'registration and nothing else, so the standing stock cannot be cut by '
+                'discipline from the register itself. What the Medical Council file '
+                'does give is the flow: PG registrations by speciality and by sex for '
+                '2020 to 2025. Those four award streams (MD, MS, DNB medical, DNB '
+                'surgical) sum to exactly the PG registrations the model already uses, '
+                'in all six years, so their shares divide the projected stock without '
+                'changing it by a single doctor. Each discipline is assumed to hold its '
+                'observed share, so this answers what the mix is likely to be, not '
+                'whether the mix will shift.</div>', unsafe_allow_html=True)
+    try:
+        sp_basis = st.radio(
+            "Share basis", ["pooled", "latest"], horizontal=True, key="sp_basis",
+            format_func=lambda b: ("All six observed years, 2020 to 2025"
+                                   if b == "pooled" else "2025 alone"),
+            help="2024 registrations are less than half of 2023 and 2025, which looks "
+                 "like a processing artefact rather than a real collapse, so pooling "
+                 "the six years is steadier. 2025 alone is closer to the current mix.")
+        SP = E.run_specialities(P, R, basis=sp_basis)
+    except (FileNotFoundError, ValueError) as err:
+        st.error(str(err)); st.stop()
+
+    order = sorted(SP["shares"], key=lambda k: -SP["shares"][k])
+    n_show = st.slider("Disciplines to chart", 4, 12, 8, key="sp_n",
+                       help="The rest stay in the table below.")
+    st.plotly_chart(chart("Active specialists by discipline",
+                          "Specialists", [(sp, SP["stock"][sp]) for sp in order[:n_show]],
+                          proj_years, palette=COMPARE, fill_first=False, height=520,
+                          pop=R["population"] if show_pop else None,
+                          subtitle=f"Shares held at the observed {'2020 to 2025' if sp_basis == 'pooled' else '2025'} "
+                                   f"mix. All {len(order)} disciplines sum to "
+                                   f"{R['specialists'][ey]:,.0f} in {ey}."),
+                    width="stretch", config=PLOTLY_CONFIG)
+
+    rows = []
+    for sp in order:
+        obs = sum(SP["observed"][sp].values())
+        rows.append({"Discipline": sp, "Awards": SP["awards"][sp],
+                     "Registered 2020-2025": f"{obs:,.0f}",
+                     "Share of PG output": f"{SP['shares'][sp]:.1%}",
+                     "Women": f"{SP['female_share'][sp]:.0%}",
+                     f"Active {2025}": f"{SP['stock'][sp][2025]:,.0f}",
+                     f"Active {ey}": f"{SP['stock'][sp][ey]:,.0f}",
+                     f"Qualifying per year, {ey}": f"{SP['flow'][sp][ey]:,.0f}"})
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True, height=460)
+
+    c1, c2, c3 = st.columns(3)
+    _top3 = sum(SP["shares"][sp] for sp in order[:3])
+    c1.metric("Disciplines covered", f"{len(order)}")
+    c2.metric("Top three share of PG output", f"{_top3:.0%}",
+              ", ".join(sp.split(" (")[0] for sp in order[:3]))
+    _fem = sum(SP["female_share"][sp] * SP["shares"][sp] for sp in order)
+    c3.metric("Women among new specialists", f"{_fem:.0%}",
+              "observed 2020 to 2025")
+
+    st.markdown('<div class="note"><b>Read the women column.</b> It is observed, not '
+                'modelled, and it is the most striking thing in this table: Obstetrics '
+                'and Gynaecology is 97 per cent women and Orthopaedics 3 per cent. Any '
+                'workforce plan that treats specialists as one undifferentiated pool '
+                'will miss this entirely.</div>', unsafe_allow_html=True)
+
+    out = pd.DataFrame({"Year": proj_years}
+                       | {sp: [SP["stock"][sp][y] for y in proj_years] for sp in order})
+    df_download(out, "Download the speciality split as CSV", "tn_specialities.csv")
+
 
 # ------------------------------------------------------------ compare rates
 if section == "Compare rates":
@@ -843,6 +919,11 @@ if section == "Compare rates":
 
 # -------------------------------------------------------- seats and pipeline
 if section == "Seats and pipeline":
+    st.caption("PROVENANCE. Seats to 2025-26 are TAKEN FROM DATA: Tamil Nadu Medical "
+               "Selection Committee, UG MBBS BDS Data Sheet and the MD, MS and PG "
+               "Diploma seat files. Beyond 2025 government seats are a policy scenario "
+               "and private seats a logistic fitted in levels to the eleven observed "
+               "years. Fill and completion rates are TAKEN FROM DATA (MGRMU).")
     a, b = st.columns(2)
     with a:
         st.plotly_chart(chart("MBBS seats, government against private", "Sanctioned seats",
@@ -887,6 +968,11 @@ if section == "Seats and pipeline":
 
 # -------------------------------------------------------------------- exits
 if section == "Exits":
+    st.caption("PROVENANCE. None of these three flows is observed. Tamil Nadu publishes "
+               "no doctor attrition series. Retirement follows an assumed participation "
+               "curve, mortality an assumed age schedule, and emigration a CALIBRATED "
+               "rate. The cohort structure they act on is TAKEN FROM DATA: 193,264 "
+               "registration records, 1927 to 2025.")
     a, b = st.columns(2)
     with a:
         st.plotly_chart(stacked("Exits from the workforce each year", "Exits",
@@ -923,6 +1009,11 @@ if section == "Exits":
 
 # ------------------------------------------------------------- other cadres
 if section == "Other cadres":
+    st.caption("PROVENANCE. Sanctioned seats, admissions and pass-outs for every cadre "
+               "are TAKEN FROM DATA: Dr. M.G.R. Medical University, Seat Count Stat and "
+               "Passout Count Stat, 15.05.2026, covering 2021 to 2025 at institution "
+               "level. Fill and completion rates are computed from those two files. "
+               "Seats after 2025 are either a fitted trend or frozen, as chosen below.")
     st.markdown('<div class="warn"><b>These are annual qualifications, not a practising '
                 'workforce.</b> No register comparable to the NMC register exists for '
                 'these cadres, so there is no stock, no attrition and no benchmark. They '
@@ -1148,13 +1239,13 @@ if section == "Assumptions":
 if section == "Data and sources":
     st.markdown("### Where every number comes from")
     S = [
-        ("TAKEN DIRECTLY", "MBBS seats, government and private, 2015-16 to 2025-26",
+        ("TAKEN FROM DATA", "MBBS seats, government and private, 2015-16 to 2025-26",
          "Selection Committee, UG MBBS BDS Data Sheet.xlsx"),
-        ("TAKEN DIRECTLY", "Government college seat distribution, 2025",
+        ("TAKEN FROM DATA", "Government college seat distribution, 2025",
          "MGRMU SEAT COUNT STAT 15052026.xlsx, sheet MBBS"),
-        ("TAKEN DIRECTLY", "TNMC registrations: MBBS, foreign graduates, PG, 2020 to 2025",
+        ("TAKEN FROM DATA", "TNMC registrations: MBBS, foreign graduates, PG, 2020 to 2025",
          "TNMC Registrations 2020 to 2025.xlsx"),
-        ("TAKEN DIRECTLY", "Seats, admissions and pass-outs for 20 cadres",
+        ("TAKEN FROM DATA", "Seats, admissions and pass-outs for 20 cadres",
          "MGRMU SEAT COUNT STAT and passout COUNT STAT, 26 sheets each"),
         ("ESTIMATED BY US", "Fill rates, all cadres",
          "Admissions over sanctioned seats, pooled across observed years"),
@@ -1196,14 +1287,22 @@ if section == "Data and sources":
           "across every transition. Catches accounting errors, not wrong assumptions.")]
     st.dataframe(pd.DataFrame(V, columns=["Check", "Independence", "What it establishes"]),
                  width="stretch", hide_index=True)
-    st.markdown("### Current parameter set")
+    st.markdown("### Current parameter set, and where each number comes from")
+    st.markdown('<div class="note">Every parameter carries its provenance. '
+                '<b>TAKEN FROM DATA</b> means read straight out of a file the State '
+                'supplied. FITTED and DERIVED are computed from that data. PUBLISHED is '
+                'an external source used verbatim. CALIBRATED, INFERRED and ASSUMED are '
+                'ours, and are the ones to argue with.</div>', unsafe_allow_html=True)
+    _prov = getattr(E, "PARAM_PROVENANCE", {})
     st.dataframe(pd.DataFrame([{"Parameter": k,
                                 "Value": (", ".join(f"{yy}: {vv:g}" for yy, vv in sorted(v.items()))
                                           if isinstance(v, dict) else
-                                          f"{v:g}" if isinstance(v, float) else str(v))}
+                                          f"{v:g}" if isinstance(v, float) else str(v)),
+                                "Status": _prov.get(k, ("", ""))[0],
+                                "Where it comes from": _prov.get(k, ("", ""))[1]}
                                for k, v in P.to_dict().items()
                                if not isinstance(v, list)]),
-                 width="stretch", hide_index=True, height=300)
+                 width="stretch", hide_index=True, height=420)
 
 st.markdown("---")
 st.caption("Method: WHO and World Bank Health Labour Market Framework. " + CITE_LIU + " "

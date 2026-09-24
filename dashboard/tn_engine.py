@@ -23,6 +23,7 @@ REGISTER_CSV = os.path.join(ROOT, "imr_tamilnadu_output", "tamilnadu_doctors.csv
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 REGISTER_AGG = os.path.join(DATA_DIR, "register_by_year.csv")
 CADRE_AGG = os.path.join(DATA_DIR, "cadre_series.json")
+SPEC_AGG = os.path.join(DATA_DIR, "pg_registrations_by_speciality.csv")
 SEAT_FILE = os.path.join(ROOT, "new data", "TN MGRMU", "SEAT COUNT STAT 15052026.xlsx")
 PASS_FILE = os.path.join(ROOT, "new data", "TN MGRMU", "passout COUNT STAT 15052026.xlsx")
 
@@ -596,3 +597,134 @@ def run_cadres(end_year: int = 2050, path: str = "trend",
     return dict(results=results, first_complete=first,
                 default_completion=data["default_completion"],
                 n_observed=data["n_observed"])
+
+
+# ---------------------------------------------------------------------------
+# Speciality split
+# ---------------------------------------------------------------------------
+# The specialist account is a single pooled stock, because the medical register
+# records a year of registration and nothing else: it carries no qualification,
+# so the standing stock cannot be cut by discipline from the register itself.
+# What the Tamil Nadu Medical Council file does give is the *flow*, speciality
+# by speciality and by sex, for 2020 to 2025. Those four sheets (MD, MS, DNB
+# medical broad, DNB surgical broad) sum to exactly the PG registrations the
+# model already uses, in all six years, so their shares can divide the
+# projected specialist stock without changing it by a single doctor.
+#
+# This is a SPLIT OF AN AGGREGATE, not a model per speciality. Each discipline
+# is assumed to keep its observed share of PG output. It answers "what is the
+# likely mix", not "will the mix change".
+
+def speciality_table(path=None):
+    """Observed PG registrations by speciality, 2020 to 2025.
+
+    Returns {speciality: {"awards": str, "by_year": {year: total},
+                          "male": n, "female": n, "total": n}}."""
+    p = path or SPEC_AGG
+    if not os.path.exists(p):
+        raise FileNotFoundError(
+            "Speciality registrations not found at " + p +
+            ". Run extract_specialities.py from the project root to build it.")
+    out = {}
+    with open(p, newline="", encoding="utf-8-sig") as fh:
+        for row in csv.DictReader(fh):
+            sp = row["speciality"]
+            d = out.setdefault(sp, {"awards": row["awards"], "by_year": {},
+                                    "male": 0.0, "female": 0.0, "total": 0.0})
+            d["by_year"][int(row["year"])] = float(row["total"])
+            d["male"] += float(row["male"])
+            d["female"] += float(row["female"])
+            d["total"] += float(row["total"])
+    return out
+
+
+def speciality_shares(basis="pooled", path=None):
+    """Share of PG output by speciality. basis 'pooled' uses all six observed
+    years together, which is steadier: 2024 registrations are less than half of
+    2023 and 2025, a processing artefact rather than a real collapse. basis
+    'latest' uses 2025 alone, which is closer to the current intake mix."""
+    tab = speciality_table(path)
+    if basis == "latest":
+        vals = {k: v["by_year"].get(2025, 0.0) for k, v in tab.items()}
+    else:
+        vals = {k: v["total"] for k, v in tab.items()}
+    tot = sum(vals.values())
+    if tot <= 0:
+        raise ValueError("speciality shares sum to zero")
+    return {k: v / tot for k, v in vals.items()}
+
+
+def run_specialities(p, R=None, basis="pooled", path=None):
+    """Divide the projected specialist stock and annual PG output by
+    speciality. The totals are untouched: for every year the per-speciality
+    figures sum back to R['specialists'] and R['pg_output']."""
+    R = R or run_doctors(p)
+    shares = speciality_shares(basis, path)
+    tab = speciality_table(path)
+    years = R["years"]
+    stock = {sp: {y: R["specialists"][y] * sh for y in years} for sp, sh in shares.items()}
+    flow = {sp: {y: R["pg_output"][y] * sh for y in years} for sp, sh in shares.items()}
+    return dict(
+        years=years, shares=shares, stock=stock, flow=flow,
+        observed={sp: tab[sp]["by_year"] for sp in tab},
+        female_share={sp: (tab[sp]["female"] / tab[sp]["total"] if tab[sp]["total"] else 0.0)
+                      for sp in tab},
+        awards={sp: tab[sp]["awards"] for sp in tab},
+        observed_total=sum(v["total"] for v in tab.values()), basis=basis)
+
+
+# ---------------------------------------------------------------------------
+# Provenance of every parameter
+# ---------------------------------------------------------------------------
+# Status vocabulary, used identically in the workbook and the dashboard:
+#   TAKEN FROM DATA  a number read straight out of a file we were given
+#   FITTED           estimated from that data by least squares, in levels
+#   DERIVED          arithmetic on other entries, shown wherever it is used
+#   CALIBRATED       chosen so the model reproduces an observed quantity
+#   INFERRED         not recorded anywhere; reasoned from what is recorded
+#   PUBLISHED        from an external published source, used verbatim
+#   ASSUMED          our own judgment, with no source
+#   POLICY SCENARIO  a choice for the State to make, not a projection
+PARAM_PROVENANCE = {
+ "end_year":            ("SETTING", "Projection horizon chosen by the user"),
+ "pop_path":            ("ASSUMED", "Our choice: NCP verbatim to 2025, then its own recent rate held"),
+ "pop_growth_rate":     ("DERIVED", "NCP 2021-2025 average annual rate, 0.298 per cent"),
+ "pop_growth_2050":     ("ASSUMED", "Only used on the alternative NCP-plateau path"),
+ "gov_2025":            ("TAKEN FROM DATA", "Selection Committee, UG MBBS BDS Data Sheet, 2025-26"),
+ "gov_target":          ("POLICY SCENARIO", "Built from the 2025 college distribution; level is ours. FOR STATE CONFIRMATION"),
+ "gov_target_year":     ("POLICY SCENARIO", "Timing is ours. FOR STATE CONFIRMATION"),
+ "pvt_ceiling":         ("ASSUMED", "Expert-judgment scenario bound, no arithmetic derives it. FOR STATE CONFIRMATION"),
+ "pvt_growth_r":        ("FITTED", "Least squares in levels on 11 observed seat years, given the ceiling"),
+ "pvt_midpoint":        ("FITTED", "Fitted with the growth rate"),
+ "pg_intercept":        ("FITTED", "Least squares in levels on the 2021-2025 PG seat series"),
+ "pg_slope":            ("FITTED", "Fitted with the intercept, +321.5 seats a year"),
+ "pg_cap_share":        ("ASSUMED", "Our own figure. Observed ratio was 56 per cent in 2025-26; binds only from 2043. FOR STATE CONFIRMATION"),
+ "fill_mbbs":           ("TAKEN FROM DATA", "MGRMU Seat Count Stat: admissions over sanctioned seats, 2021-2025"),
+ "fill_pg":             ("TAKEN FROM DATA", "MGRMU PG Medical sheet, 2021-2024"),
+ "completion":          ("PUBLISHED", "NMC benchmark; validated indirectly on PG, 2,707 predicted against 2,717 observed"),
+ "lag_mbbs":            ("TAKEN FROM DATA", "MBBS prospectus: 4.5 academic years plus a 12-month internship"),
+ "lag_pg":              ("TAKEN FROM DATA", "Prospectuses: MD, MS, DNB broad speciality duration"),
+ "external_residual":   ("DERIVED", "Observed registrations minus modelled domestic output, 2021-2025 mean"),
+ "gap_forward":         ("TAKEN FROM DATA", "Selection Committee 4,750 against MGRMU 3,900 for 2025-26"),
+ "fmg_base":            ("TAKEN FROM DATA", "TNMC registrations of foreign medical graduates, 2025"),
+ "fmg_increment":       ("FITTED", "TNMC 2020-2025 trend, fitted in levels"),
+ "fmg_ceiling":         ("ASSUMED", "Roughly double the 2025 level"),
+ "pg_residual":         ("DERIVED", "TNMC PG registrations minus seat-driven output, 2024-2025"),
+ "age_at_registration": ("INFERRED", "Age is never recorded in the register, only the year. Resolvable with NMC birth dates"),
+ "age_at_pg":           ("INFERRED", "Registration age plus typical time to a PG qualification"),
+ "emigration_rate":     ("CALIBRATED", "No direct measure of Tamil Nadu doctor out-migration exists. The most consequential parameter"),
+ "emigration_age_lo":   ("ASSUMED", "The window over which loss is concentrated"),
+ "emigration_age_hi":   ("ASSUMED", "The window over which loss is concentrated"),
+ "mortality_bands":     ("ASSUMED", "Indian adult mortality adjusted downward for the professional class"),
+ "participation_bands": ("ASSUMED", "Reasoned from retirement at 60 in government service"),
+ "who_norm":            ("PUBLISHED", "WHO, Global Strategy on HRH: Workforce 2030 (2016)"),
+ "who_doctor_share":    ("PUBLISHED", "WHO (2016), doctor to nurse ratio of 1 to 3"),
+ "rn_e_gdp":            ("PUBLISHED", "Liu et al. 2017, Table 1: 0.231 + 0.531 - 0.518"),
+ "rn_e_oop":            ("PUBLISHED", "Liu et al. 2017, Table 1"),
+ "rn_e_pop65":          ("PUBLISHED", "Liu et al. 2017, Table 1"),
+ "rn_gdp_g_2026":       ("ASSUMED", "Our own path for GSDP per capita. FOR STATE CONFIRMATION"),
+ "rn_gdp_g_2050":       ("ASSUMED", "Our own path for GSDP per capita. FOR STATE CONFIRMATION"),
+ "rn_oop_adj":          ("ASSUMED", "Zero holds the out-of-pocket share of spending constant"),
+ "rn_pop65_g":          ("ASSUMED", "Our own figure. Replaceable with the NCP 2019 age tables. FOR STATE CONFIRMATION"),
+ "rn_anchor":           ("DERIVED", "The model's last observed year, so the line starts from the doctors the state has"),
+}

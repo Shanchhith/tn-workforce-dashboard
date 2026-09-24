@@ -13,9 +13,12 @@ from openpyxl.chart import LineChart, AreaChart, BarChart, Reference
 from openpyxl.chart.marker import Marker
 from openpyxl.utils import get_column_letter
 
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard"))
 with contextlib.redirect_stdout(io.StringIO()):
     import tn_supply_model as m
     import tn_cadre_model as c
+    import tn_engine as E      # the speciality split; verified against the model
 
 FONT = "Times New Roman"
 BODY = Font(name=FONT, size=10, color="000000")
@@ -137,6 +140,8 @@ write_table(ws,
      ["Total output", "Annual qualified output across every cadre including medical"],
      ["REFERENCE", ""],
      ["Parameters", "Every parameter, its value, and its source"],
+     ["Specialities", "The specialist stock divided by discipline, with the observed "
+      "registration shares and the women share"],
      ["Methodology", "Method in full, module by module"],
      ["Provenance", "Every figure classified: taken directly, estimated, derived, or assumed"],
      ["Data Sources", "Every source used, with publisher, coverage and link"]],
@@ -674,6 +679,52 @@ ch.add_data(Reference(ws, min_col=6, min_row=1, max_row=last), titles_from_data=
 ch.set_categories(Reference(ws, min_col=1, min_row=2, max_row=last))
 style_chart(ch, "Doctors"); mono_lines(ch)
 ws.add_chart(ch, "I2")
+
+# ------------------------------------------------------------ Specialities
+# A division of the specialist stock, not a model per discipline. The register
+# carries no qualification, so the standing stock cannot be cut by discipline
+# from it. The Medical Council file does give the flow by speciality and sex
+# for 2020-2025, and those four award streams sum to exactly the PG
+# registrations the model already uses, so their shares divide the projected
+# stock without changing it. Each discipline is assumed to hold its share.
+_P = E.Params()
+_R = E.run_doctors(_P)
+_S = E.run_specialities(_P, _R)
+ws = new_sheet("Specialities")
+_order = sorted(_S["shares"], key=lambda k: -_S["shares"][k])
+rows = []
+for sp in _order:
+    rows.append([sp, _S["awards"][sp], round(sum(_S["observed"][sp].values())),
+                 round(_S["shares"][sp], 5), round(_S["female_share"][sp], 4),
+                 round(_S["stock"][sp][2025]), round(_S["stock"][sp][2040]),
+                 round(_S["stock"][sp][2050]), round(_S["flow"][sp][2050])])
+rows.append(["TOTAL", "", round(_S["observed_total"]), 1.0, None,
+             round(_R["specialists"][2025]), round(_R["specialists"][2040]),
+             round(_R["specialists"][2050]), round(_R["pg_output"][2050])])
+write_table(ws,
+    ["Discipline", "Awards counted", "Registered 2020-2025", "Share of PG output",
+     "Women, observed", "Active specialists 2025", "Active specialists 2040",
+     "Active specialists 2050", "Qualifying per year 2050"],
+    rows, [40, 15, 16, 14, 13, 16, 16, 16, 16],
+    {3: "#,##0", 4: "0.0%", 5: "0%", 6: "#,##0", 7: "#,##0", 8: "#,##0", 9: "#,##0"})
+ws.freeze_panes = "B2"
+_last = 1 + len(rows)
+ch = BarChart()
+ch.add_data(Reference(ws, min_col=8, min_row=1, max_row=_last - 1), titles_from_data=True)
+ch.set_categories(Reference(ws, min_col=1, min_row=2, max_row=_last - 1))
+style_chart(ch, "Active specialists 2050"); mono_lines(ch)
+ws.add_chart(ch, "K2")
+for k, t in enumerate([
+ "Observed registrations by speciality, Tamil Nadu Medical Council, 2020 to 2025: "
+ "MD, MS, DNB medical broad speciality and DNB surgical broad speciality.",
+ "These four streams sum to the PG registrations used in the Projection sheet in "
+ "all six years, so the shares divide the specialist stock without changing it.",
+ "Superspecialty (DM, M.Ch, DNB superspeciality) and PG Diploma are outside this "
+ "total, as they are outside the specialist account, to avoid double counting.",
+ "Each discipline is assumed to hold its observed share of PG output. This is a "
+ "split of an aggregate, not a projection per discipline.",
+ "The women column is observed, not modelled."]):
+    ws.cell(row=_last + 2 + k, column=1, value=t).font = BODY
 
 # ------------------------------------------------------------- Sensitivity
 ws = new_sheet("Sensitivity")
@@ -1369,23 +1420,23 @@ for i in range(2, end):
 # ------------------------------------------------------------- Provenance
 ws = new_sheet("Provenance")
 P2 = [
- ("TAKEN DIRECTLY", "MBBS seats, government and self-financing, 2015-16 to 2025-26",
+ ("TAKEN FROM DATA", "MBBS seats, government and self-financing, 2015-16 to 2025-26",
   "2,655 to 5,200 and 1,010 to 4,750",
   "Selection Committee, UG MBBS BDS Data Sheet.xlsx, sheet UG MBBS SS"),
- ("TAKEN DIRECTLY", "Government college seat distribution 2025",
+ ("TAKEN FROM DATA", "Government college seat distribution 2025",
   "37 colleges: 16 at 100, 16 at 150, 1 at 200, 4 at 250",
   "MGRMU SEAT COUNT STAT 15052026.xlsx, sheet MBBS"),
- ("TAKEN DIRECTLY", "PG seats 2025-26, full basis", "5,534",
+ ("TAKEN FROM DATA", "PG seats 2025-26, full basis", "5,534",
   "Selection Committee MD Seats (3,629) plus MS Seats (1,905)"),
- ("TAKEN DIRECTLY", "TNMC MBBS registrations 2020-2025",
+ ("TAKEN FROM DATA", "TNMC MBBS registrations 2020-2025",
   "8,409 / 8,058 / 10,367 / 9,370 / 9,722 / 10,839",
   "TNMC Registrations 2020 to 2025.xlsx, sheet MBBS TNMC"),
- ("TAKEN DIRECTLY", "TNMC foreign medical graduate registrations",
+ ("TAKEN FROM DATA", "TNMC foreign medical graduate registrations",
   "640 / 1,268 / 1,287 / 1,622 / 1,427 / 1,606", "Same workbook and sheet"),
- ("TAKEN DIRECTLY", "TNMC broad-speciality PG registrations",
+ ("TAKEN FROM DATA", "TNMC broad-speciality PG registrations",
   "2,702 / 4,210 / 5,632 / 5,279 / 2,917 / 8,069",
   "Same workbook, sheets MD, MS, DNB MedPG, DNB Surg PG"),
- ("TAKEN DIRECTLY", "Seats, admissions and pass-outs, 20 other cadres", "2021 to 2025",
+ ("TAKEN FROM DATA", "Seats, admissions and pass-outs, 20 other cadres", "2021 to 2025",
   "MGRMU SEAT COUNT STAT and passout COUNT STAT, 26 sheets each"),
  ("ESTIMATED BY US", "MBBS fill rate", "0.998",
   "Admissions over sanctioned seats, pooled 2021-2025. 2025: 9,053 of 9,100"),
