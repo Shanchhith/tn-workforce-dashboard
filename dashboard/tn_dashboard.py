@@ -62,6 +62,25 @@ st.markdown("""
 
   /* sidebar */
   section[data-testid="stSidebar"] { background:#f7f9fa; border-right:1px solid #e3e8ec; }
+  /* The sidebar is the control panel for the whole dashboard, and a stray click
+     on the collapse arrow hides it with no obvious way back, which is alarming
+     mid-presentation. It is pinned open here and the collapse control removed.
+     Browsers that already remembered a collapsed state are overridden too. */
+  section[data-testid="stSidebar"] {
+      display:block !important; visibility:visible !important; opacity:1 !important;
+      transform:none !important; margin-left:0 !important; left:0 !important;
+      width:21rem !important; min-width:21rem !important; max-width:21rem !important; }
+  section[data-testid="stSidebar"][aria-expanded="false"] {
+      transform:none !important; margin-left:0 !important; width:21rem !important;
+      min-width:21rem !important; }
+  section[data-testid="stSidebar"] > div { width:21rem !important; min-width:21rem !important; }
+  /* every flavour of the collapse / reopen chevron across Streamlit versions */
+  [data-testid="stSidebarCollapseButton"],
+  [data-testid="stSidebarCollapsedControl"],
+  [data-testid="collapsedControl"],
+  [data-testid="baseButton-headerNoPadding"],
+  section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] button,
+  section[data-testid="stSidebar"] button[kind="header"] { display:none !important; }
   section[data-testid="stSidebar"] h2 { font-size:0.95rem !important; margin-top:1.15rem !important;
       text-transform:uppercase; letter-spacing:0.07em; color:#0F4761;
       border-bottom:1px solid #dfe5ea; padding-bottom:0.3rem; }
