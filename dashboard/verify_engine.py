@@ -11,7 +11,7 @@ with contextlib.redirect_stdout(io.StringIO()):
 SQ = "Status quo"
 R = E.run_doctors(E.Params())
 ok = True
-WBD = {y: (v if v is not None else float("nan")) for y, v in R["wb_demand"].items()}
+RND = {y: (v if v is not None else float("nan")) for y, v in R["revised_need"].items()}
 print(f"{'series':<22}{'n':>5}{'max abs diff':>15}{'worst year':>12}")
 checks = [
     ("population",  R["population"],  {y: m.POP[m.IDX[y]] for y in m.YEARS}),
@@ -25,7 +25,7 @@ checks = [
     ("deaths",      R["deaths"],      {y: m.EXITS[m.IDX[y]]["deaths"] for y in m.YEARS}),
     ("migration",   R["migration"],   {y: m.EXITS[m.IDX[y]]["emigration"] for y in m.YEARS}),
     ("WHO need",    R["who_need"],    {y: m.NEED_DOCTORS[m.IDX[y]] for y in m.YEARS}),
-    ("WB demand",   WBD, {y: m.WB_DEMAND[m.IDX[y]] for y in m.YEARS}),
+    ("revised need", RND, {y: m.REVISED_NEED[m.IDX[y]] for y in m.YEARS}),
 ]
 for name, got, exp in checks:
     worst, wy, n = 0.0, None, 0

@@ -222,7 +222,7 @@ def chart(title, ylab, series, x, annotate=True, height=455, subtitle=None, fill
             line = dict(color=BASELINE_STYLE["color"], width=1.8,
                         dash=BASELINE_STYLE["dash"], shape="spline", smoothing=0.35)
             colr = BASELINE_STYLE["color"]
-        elif name == "World Bank demand" and palette is None:
+        elif name == "Revised projected need" and palette is None:
             colr = "#2E8B57"
             line = dict(color=colr, width=2.3, dash="dot", shape="spline", smoothing=0.35)
         elif palette is not None:
@@ -311,25 +311,28 @@ pop_path = st.sidebar.selectbox(
          "only if the population does. Published: the NCP series to 2025, then its "
          "own recent rate held constant. Alternative: the NCP series itself, which "
          "plateaus from 2031.")
-st.sidebar.markdown("## Demand benchmark, World Bank method")
-show_wb = st.sidebar.toggle("Show World Bank demand line", value=True, key="show_wb",
-                            help="Doctors the economy would absorb, on the demand model "
-                                 "of Liu et al. 2017: rises with income, ageing and the "
-                                 "move away from out-of-pocket payment. Elasticities are "
-                                 "published; the growth paths below are assumptions.")
-wb_g26 = st.sidebar.slider("Real GSDP per capita growth, 2026", 0.0, 0.10,
-                           D.wb_gdp_g_2026, 0.005, format="%.3f", key="wb_g26",
+st.sidebar.markdown("## Revised projected need")
+show_rn = st.sidebar.toggle("Show revised projected need", value=True, key="show_rn",
+                            help="A need line revised for the state's own economy: it "
+                                 "starts from the doctors Tamil Nadu has in 2025 and "
+                                 "rises with income, ageing and the move away from "
+                                 "out-of-pocket payment. Demand side of the health "
+                                 "labour market framework (Liu et al. 2017). The "
+                                 "elasticities are published; the growth paths below "
+                                 "are our assumptions.")
+rn_g26 = st.sidebar.slider("Real GSDP per capita growth, 2026", 0.0, 0.10,
+                           D.rn_gdp_g_2026, 0.005, format="%.3f", key="rn_g26",
                            help="ASSUMED, FOR STATE CONFIRMATION. Recent Tamil Nadu real "
                                 "GSDP growth less population growth.")
-wb_g50 = st.sidebar.slider("Real GSDP per capita growth, 2050", 0.0, 0.10,
-                           D.wb_gdp_g_2050, 0.005, format="%.3f", key="wb_g50",
+rn_g50 = st.sidebar.slider("Real GSDP per capita growth, 2050", 0.0, 0.10,
+                           D.rn_gdp_g_2050, 0.005, format="%.3f", key="rn_g50",
                            help="The 2026 rate eases linearly to this by 2050.")
-wb_p65 = st.sidebar.slider("Growth of population aged 65+, per year", 0.0, 0.06,
-                           D.wb_pop65_g, 0.0025, format="%.4f", key="wb_p65",
+rn_p65 = st.sidebar.slider("Growth of population aged 65+, per year", 0.0, 0.06,
+                           D.rn_pop65_g, 0.0025, format="%.4f", key="rn_p65",
                            help="ASSUMED, FOR STATE CONFIRMATION. To be replaced by the "
                                 "NCP 2019 age tables for Tamil Nadu.")
-wb_oop = st.sidebar.slider("Out-of-pocket growth less GDP growth", -0.05, 0.05,
-                           D.wb_oop_adj, 0.005, format="%.3f", key="wb_oop",
+rn_oop = st.sidebar.slider("Out-of-pocket growth less GDP growth", -0.05, 0.05,
+                           D.rn_oop_adj, 0.005, format="%.3f", key="rn_oop",
                            help="Zero holds the out-of-pocket share of spending constant. "
                                 "Negative means insurance is displacing it.")
 
@@ -510,8 +513,8 @@ P = E.Params(
     participation_bands=[(60, 1.00), (65, ret60), (70, ret65), (75, ret70),
                          (80, 0.12), (999, 0.03)],
     who_norm=float(who_norm), who_doctor_share=float(who_share),
-    wb_gdp_g_2026=float(wb_g26), wb_gdp_g_2050=float(wb_g50),
-    wb_pop65_g=float(wb_p65), wb_oop_adj=float(wb_oop))
+    rn_gdp_g_2026=float(rn_g26), rn_gdp_g_2050=float(rn_g50),
+    rn_pop65_g=float(rn_p65), rn_oop_adj=float(rn_oop))
 
 is_default = (P.to_dict() == E.Params(end_year=int(end_year)).to_dict()
               and gov_choice == list(E.GOV_SCENARIOS.keys())[1]
@@ -556,9 +559,9 @@ if is_default:
     c3.metric("Active specialists", f"{R['specialists'][ey]:,.0f}",
               f"{R['specialists'][ey] / R['active'][ey] * 100:.0f}% of stock")
     c4.metric("Entrants per year", f"{R['entrants'][ey]:,.0f}")
-    if show_wb and R["wb_demand"].get(ey) is not None:
-        c5.metric("Surplus vs World Bank demand", f"{R['wb_surplus'][ey]:,.0f}",
-                  f"{R['active'][ey] / R['wb_demand'][ey]:.2f}x demand; "
+    if show_rn and R["revised_need"].get(ey) is not None:
+        c5.metric("Surplus vs revised need", f"{R['revised_surplus'][ey]:,.0f}",
+                  f"{R['active'][ey] / R['revised_need'][ey]:.2f}x revised need; "
                   f"{R['active'][ey] / R['who_need'][ey]:.1f}x WHO floor")
     else:
         c5.metric("Surplus vs WHO floor", f"{R['surplus'][ey]:,.0f}",
@@ -574,9 +577,9 @@ else:
               f"{R['specialists'][ey] - R0['specialists'][ey]:+,.0f} vs published")
     c4.metric("Entrants per year", f"{R['entrants'][ey]:,.0f}",
               f"{R['entrants'][ey] - R0['entrants'][ey]:+,.0f} vs published")
-    if show_wb and R["wb_demand"].get(ey) is not None and R0["wb_demand"].get(ey) is not None:
-        c5.metric("Surplus vs World Bank demand", f"{R['wb_surplus'][ey]:,.0f}",
-                  f"{R['wb_surplus'][ey] - R0['wb_surplus'][ey]:+,.0f} vs published")
+    if show_rn and R["revised_need"].get(ey) is not None and R0["revised_need"].get(ey) is not None:
+        c5.metric("Surplus vs revised need", f"{R['revised_surplus'][ey]:,.0f}",
+                  f"{R['revised_surplus'][ey] - R0['revised_surplus'][ey]:+,.0f} vs published")
     else:
         c5.metric("Surplus vs WHO floor", f"{R['surplus'][ey]:,.0f}",
                   f"{R['surplus'][ey] - R0['surplus'][ey]:+,.0f} vs published")
@@ -590,10 +593,10 @@ st.markdown(
     f'{R["active"][ey] / R["who_need"][ey]:.0f} times the floor. The constraint is '
     f'control, not volume: private capacity reaches <b>{_pvt_share:.0f}% of MBBS seats</b> '
     f'by {ey}, and the state still adds <b>{_ratio:.1f} doctors for every one it loses</b>.'
-    + (f' Even against what a richer, older economy would absorb (World Bank demand, '
-       f'<b>{R["wb_demand"][ey]:,.0f}</b> in {ey}), supply runs '
-       f'<b>{R["active"][ey] / R["wb_demand"][ey]:.1f} times</b> ahead.'
-       if show_wb and R["wb_demand"].get(ey) else "")
+    + (f' Even against need revised for a richer, older economy '
+       f'(<b>{R["revised_need"][ey]:,.0f}</b> doctors in {ey}), supply runs '
+       f'<b>{R["active"][ey] / R["revised_need"][ey]:.1f} times</b> ahead.'
+       if show_rn and R["revised_need"].get(ey) else "")
     + '</div>', unsafe_allow_html=True)
 
 SECTIONS = ["Doctors", "Compare rates", "Seats and pipeline", "Exits", "Other cadres",
@@ -615,14 +618,14 @@ if section == "Doctors":
         if not is_default:
             series.append(("Published baseline", R0["active"]))
         series.append(("WHO requirement", R["who_need"]))
-        if show_wb:
-            series.append(("World Bank demand", R["wb_demand"]))
-        st.plotly_chart(chart("Active doctors against need and demand", "Doctors",
+        if show_rn:
+            series.append(("Revised projected need", R["revised_need"]))
+        st.plotly_chart(chart("Active doctors against the two need benchmarks", "Doctors",
                               series, proj_years, pop=R["population"] if show_pop else None,
                               subtitle=("Dashed grey is the published baseline."
                                         if not is_default else
-                                        "WHO: a per-capita floor. World Bank demand: what "
-                                        "a growing, ageing economy would absorb.")),
+                                        "WHO: a fixed per-head floor. Revised need: what "
+                                        "a growing, ageing economy will support.")),
                         width="stretch", config=PLOTLY_CONFIG)
     with b:
         series = [("Modelled density", R["density"])]
@@ -630,9 +633,9 @@ if section == "Doctors":
             series.append(("Published baseline", R0["density"]))
         series.append(("WHO floor", {y: P.who_norm * P.who_doctor_share
                                      for y in proj_years}))
-        if show_wb:
-            series.append(("World Bank demand", {y: (R["wb_demand"][y] / R["population"][y] * 10000
-                                                    if R["wb_demand"][y] is not None else None)
+        if show_rn:
+            series.append(("Revised projected need", {y: (R["revised_need"][y] / R["population"][y] * 10000
+                                                    if R["revised_need"][y] is not None else None)
                                                  for y in proj_years}))
         st.plotly_chart(chart("Doctor density", "Doctors per 10,000", series, proj_years,
                               pop=R["population"] if show_pop else None,
@@ -665,7 +668,7 @@ if section == "Doctors":
     doc_df = pd.DataFrame({
         "Year": proj_years,
         "Population": [R["population"][y] for y in proj_years],
-        "World Bank demand": [R["wb_demand"][y] for y in proj_years],
+        "Revised projected need": [R["revised_need"][y] for y in proj_years],
         "Government seats": [R["gov_seats"][y] for y in proj_years],
         "Private seats": [R["pvt_seats"][y] for y in proj_years],
         "PG seats": [R["pg_seats"][y] for y in proj_years],
@@ -711,8 +714,8 @@ if section == "Compare rates":
         "Entrants per year": ("entrants", "Doctors per year", ",.0f"),
         "Exits per year": ("exits", "Doctors per year", ",.0f"),
         "Surplus over the WHO floor": ("surplus", "Doctors", ",.0f"),
-        "World Bank demand": ("wb_demand", "Doctors", ",.0f"),
-        "Surplus over World Bank demand": ("wb_surplus", "Doctors", ",.0f"),
+        "Revised projected need": ("revised_need", "Doctors", ",.0f"),
+        "Surplus over the revised need": ("revised_surplus", "Doctors", ",.0f"),
     }
     # Paths are anchored at the rate's current value v.
     PATHS = {
@@ -1086,9 +1089,9 @@ if section == "Assumptions":
          "POLICY SCENARIO",
          "Built from the observed college distribution, but the level and timing are ours.",
          "FOR STATE CONFIRMATION"),
-        ("World Bank demand line, growth of its drivers",
-         f"GSDP per capita {P.wb_gdp_g_2026:.1%} easing to {P.wb_gdp_g_2050:.1%}; "
-         f"65+ population {P.wb_pop65_g:.1%}/yr; OOP {P.wb_oop_adj:+.1%} vs GDP",
+        ("Revised projected need, growth of its drivers",
+         f"GSDP per capita {P.rn_gdp_g_2026:.1%} easing to {P.rn_gdp_g_2050:.1%}; "
+         f"65+ population {P.rn_pop65_g:.1%}/yr; OOP {P.rn_oop_adj:+.1%} vs GDP",
          "ASSUMED, elasticities published",
          "The elasticities (0.244 income, -0.099 out-of-pocket, 0.516 population 65+) "
          "are Table 1 of " + CITE_LIU + " The paths of the drivers are ours. The line is "
@@ -1168,7 +1171,7 @@ if section == "Data and sources":
          CITE_NCP + " Used verbatim to 2025; its 2021 to 2025 rate is then held constant."),
         ("EXTERNAL SOURCE", "WHO density norm 44.5 and doctor share one quarter",
          CITE_WHO_GS),
-        ("EXTERNAL SOURCE", "World Bank demand elasticities: 0.244 income, "
+        ("EXTERNAL SOURCE", "Revised need elasticities: 0.244 income, "
          "-0.099 out-of-pocket, 0.516 population 65+",
          "Table 1 of " + CITE_LIU),
         ("METHOD", "Health labour market framework: supply, need and demand",

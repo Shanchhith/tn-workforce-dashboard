@@ -427,7 +427,7 @@ WHO_DOCTOR_SHARE = 0.25       # doctor : nurse = 1 : 3
 NEED_DOCTORS = POP * (WHO_TOTAL_PER_10K * WHO_DOCTOR_SHARE) / 10000.0
 
 # ============================================================================
-# 6b. DEMAND BENCHMARK: World Bank health labour market model
+# 6b. REVISED PROJECTED NEED: demand side of the health labour market model
 # ============================================================================
 # Liu, Goryakin, Maeda, Bruckner and Scheffler, Global Health Workforce Labor
 # Market Projections for 2030, World Bank PRWP 7790 (2016) / HRH 2017;15:11,
@@ -437,31 +437,32 @@ NEED_DOCTORS = POP * (WHO_TOTAL_PER_10K * WHO_DOCTOR_SHARE) / 10000.0
 # The country effect pins the level, so the line is anchored on Tamil Nadu's
 # own 2025 density and moved by the three drivers from there. Under steady
 # growth the three GDP lags collapse to one long-run elasticity of 0.244.
-WB_E_GDP   = 0.231 + 0.531 - 0.518   # long-run income elasticity, 0.244
-WB_E_OOP   = -0.099                  # out-of-pocket spending per capita
-WB_E_POP65 = 0.516                   # absolute population aged 65 and over
-WB_GDP_G_2026 = 0.065   # real GSDP per capita growth, 2026. ASSUMED, see Assumptions
-WB_GDP_G_2050 = 0.040   # eases linearly to this by 2050. ASSUMED
-WB_OOP_ADJ    = 0.0     # OOP per capita growth minus GDP per capita growth. ASSUMED
-WB_POP65_G    = 0.035   # growth of the 65+ population per year. ASSUMED
-WB_ANCHOR     = 2025
+RN_E_GDP   = 0.231 + 0.531 - 0.518   # long-run income elasticity, 0.244
+RN_E_OOP   = -0.099                  # out-of-pocket spending per capita
+RN_E_POP65 = 0.516                   # absolute population aged 65 and over
+RN_GDP_G_2026 = 0.065   # real GSDP per capita growth, 2026. ASSUMED, see Assumptions
+RN_GDP_G_2050 = 0.040   # eases linearly to this by 2050. ASSUMED
+RN_OOP_ADJ    = 0.0     # OOP per capita growth minus GDP per capita growth. ASSUMED
+RN_POP65_G    = 0.035   # growth of the 65+ population per year. ASSUMED
+RN_ANCHOR     = 2025
 
-def build_wb_demand(active):
-    """Doctors demanded each year on the World Bank model, anchored on the
-    modelled 2025 density. NaN before the anchor year."""
+def build_revised_need(active):
+    """Revised projected need: the doctors the state's own economy will support,
+    on the demand side of the World Bank health labour market model, anchored on
+    the modelled 2025 density. NaN before the anchor year."""
     out = np.full(len(YEARS), np.nan)
-    i0 = IDX[WB_ANCHOR]
+    i0 = IDX[RN_ANCHOR]
     dens = active[i0] / POP[i0] * 10000.0
     out[i0] = active[i0]
     for i in range(i0 + 1, len(YEARS)):
         y = YEARS[i]
-        g = WB_GDP_G_2026 + (WB_GDP_G_2050 - WB_GDP_G_2026) * (y - 2026) / (2050 - 2026)
-        dens *= ((1 + g) ** WB_E_GDP * (1 + g + WB_OOP_ADJ) ** WB_E_OOP
-                 * (1 + WB_POP65_G) ** WB_E_POP65)
+        g = RN_GDP_G_2026 + (RN_GDP_G_2050 - RN_GDP_G_2026) * (y - 2026) / (2050 - 2026)
+        dens *= ((1 + g) ** RN_E_GDP * (1 + g + RN_OOP_ADJ) ** RN_E_OOP
+                 * (1 + RN_POP65_G) ** RN_E_POP65)
         out[i] = dens * POP[i] / 10000.0
     return out
 
-WB_DEMAND = build_wb_demand(np.array([r["active"] for r in RESULTS["Status quo"]], float))
+REVISED_NEED = build_revised_need(np.array([r["active"] for r in RESULTS["Status quo"]], float))
 
 # ============================================================================
 # 7. OUTPUT TABLES
@@ -471,7 +472,7 @@ def col(scen, key):
 
 with open("tn_projection_2050.csv", "w", newline="") as f:
     w = csv.writer(f)
-    hdr = ["year", "population", "who_need_doctors", "wb_demand_doctors",
+    hdr = ["year", "population", "who_need_doctors", "revised_need_doctors",
            "retirements", "deaths", "emigration", "total_exits"]
     for s in SCENARIOS:
         k = s.lower().replace(" ", "_")
@@ -482,7 +483,7 @@ with open("tn_projection_2050.csv", "w", newline="") as f:
     for i, y in enumerate(YEARS):
         ex = EXITS[i]
         row = [y, f"{POP[i]:.0f}", f"{NEED_DOCTORS[i]:.0f}",
-               "" if np.isnan(WB_DEMAND[i]) else f"{WB_DEMAND[i]:.0f}",
+               "" if np.isnan(REVISED_NEED[i]) else f"{REVISED_NEED[i]:.0f}",
                f"{ex['retirements']:.0f}", f"{ex['deaths']:.0f}",
                f"{ex['emigration']:.0f}",
                f"{ex['retirements']+ex['deaths']+ex['emigration']:.0f}"]
@@ -540,8 +541,8 @@ for s in SCENARIOS:
     line("Active specialists", sp)
     line("WHO need (doctors)", NEED_DOCTORS)
     line("Surplus vs WHO need", a - NEED_DOCTORS)
-    line("World Bank demand (doctors)", WB_DEMAND)
-    line("Surplus vs WB demand", a - WB_DEMAND)
+    line("Revised projected need", REVISED_NEED)
+    line("Surplus vs revised need", a - REVISED_NEED)
 
 emit("\n\nANNUAL EXITS, retirements, deaths and migration (status-quo scenario)")
 emit("-" * 78)

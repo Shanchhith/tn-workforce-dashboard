@@ -249,9 +249,11 @@ V = [
  ("Surplus vs WHO need", "How far actual supply runs above or below the WHO floor.",
   "Active doctors - WHO need. Positive means supply exceeds the floor.", "n/a",
   "Derived"),
- ("World Bank demand (doctors)", "The number of doctors the economy would absorb, on "
-  "the World Bank health labour market demand model. Rises with income, ageing and "
-  "the shift away from out-of-pocket payment. A demand line, not a norm.",
+ ("Revised projected need (doctors)", "A need line revised for what the state's own "
+  "economy will support: it starts from the doctors Tamil Nadu actually has in 2025 "
+  "and rises with income, ageing and the shift away from out-of-pocket payment. The "
+  "demand side of the health labour market framework, so a behavioural benchmark "
+  "rather than a fixed per-head norm like the WHO floor.",
   "ln(physicians per 1,000) = -9.882 + 0.231 ln GDPpc(t-1) + 0.531 ln GDPpc(t-4) "
   "- 0.518 ln GDPpc(t-5) - 0.099 ln OOPpc(t-2) + 0.516 ln Pop65(t-3) + country effect "
   "(Table 1). The country effect pins the level, so the series is anchored on the "
@@ -259,9 +261,9 @@ V = [
   "density(t-1) x (1+g)^0.244 x (1+g+adj)^-0.099 x (1+p65)^0.516, times population. "
   "Inputs B32 to B38.",
   "Published elasticities; three assumed growth paths (Inputs B35 to B38)",
-  CITE_LIU + " Code: build_wb_demand()"),
- ("Surplus vs WB demand", "How far supply runs above what the economy would absorb.",
-  "Active doctors - World Bank demand.", "n/a", "Derived"),
+  CITE_LIU + " Code: build_revised_need()"),
+ ("Surplus vs revised need", "How far supply runs above the revised projected need.",
+  "Active doctors - revised projected need.", "n/a", "Derived"),
 ]
 end = write_table(ws,
     ["Variable", "What it is", "How it is computed", "Input data",
@@ -338,21 +340,21 @@ INP = [
   "CALIBRATED, not observed. See Sensitivity sheet"),
  ("Age at registration", m.AGE_AT_REG, "years",
   "INFERRED, not observed. See Age sensitivity sheet"),
- ("WB demand: income elasticity", m.WB_E_GDP, "elasticity",
+ ("Revised need: income elasticity", m.RN_E_GDP, "elasticity",
   "PUBLISHED. Sum of the three GDP per capita lags in Table 1, 0.231 + 0.531 - 0.518, "
   "of " + CITE_LIU),
- ("WB demand: out-of-pocket elasticity", m.WB_E_OOP, "elasticity",
+ ("Revised need: out-of-pocket elasticity", m.RN_E_OOP, "elasticity",
   "PUBLISHED. Table 1 of Liu et al. 2017 (full reference in row 32)"),
- ("WB demand: population 65+ elasticity", m.WB_E_POP65, "elasticity",
+ ("Revised need: population 65+ elasticity", m.RN_E_POP65, "elasticity",
   "PUBLISHED. Table 1 of Liu et al. 2017 (full reference in row 32)"),
- ("WB demand: real GSDP per capita growth, 2026", m.WB_GDP_G_2026, "per year",
+ ("Revised need: real GSDP per capita growth, 2026", m.RN_GDP_G_2026, "per year",
   "ASSUMED, FOR STATE CONFIRMATION. Recent Tamil Nadu real GSDP growth less population "
   "growth. See Assumptions sheet"),
- ("WB demand: real GSDP per capita growth, 2050", m.WB_GDP_G_2050, "per year",
+ ("Revised need: real GSDP per capita growth, 2050", m.RN_GDP_G_2050, "per year",
   "ASSUMED, FOR STATE CONFIRMATION. The 2026 rate eases linearly to this by 2050"),
- ("WB demand: OOP growth less GDP growth", m.WB_OOP_ADJ, "per year",
+ ("Revised need: OOP growth less GDP growth", m.RN_OOP_ADJ, "per year",
   "ASSUMED. Zero holds the out-of-pocket share of spending constant"),
- ("WB demand: growth of population aged 65+", m.WB_POP65_G, "per year",
+ ("Revised need: growth of population aged 65+", m.RN_POP65_G, "per year",
   "ASSUMED, FOR STATE CONFIRMATION. To be replaced by the NCP 2019 age tables for "
   "Tamil Nadu"),
 ]
@@ -395,7 +397,7 @@ HEAD = ["Year", "Basis", "Population", "Government MBBS seats", "Private MBBS se
         "Migration", "Total exits", "Net change", "Active doctors",
         "Doctors per 10,000", "PG qualified output", "Specialist exits",
         "Active specialists", "WHO need (doctors)", "Surplus vs WHO need",
-        "World Bank demand (doctors)", "Surplus vs WB demand"]
+        "Revised projected need (doctors)", "Surplus vs revised need"]
 write_table(ws, HEAD, [], [7, 10, 12, 13, 12, 12, 10, 12, 11, 13, 12, 11, 9, 11,
                            10, 10, 12, 11, 12, 11, 12, 12, 13, 14, 13])
 
@@ -480,13 +482,13 @@ for i, y in enumerate(YEARS):
         ws.cell(row=r, column=21, value=f"=U{r-1}+S{r}-T{r}")
     ws.cell(row=r, column=22, value=f"=C{r}*{IN}$B$2*{IN}$B$3/10000")
     ws.cell(row=r, column=23, value=f"=Q{r}-V{r}")
-    # X, Y: World Bank demand, anchored on the modelled 2025 stock, then moved by
+    # X, Y: revised projected need, anchored on the modelled 2025 stock, then moved by
     # GDP per capita, out-of-pocket spending and the 65+ population with the
     # published elasticities. Density recursion, times population.
-    if y == m.WB_ANCHOR:
+    if y == m.RN_ANCHOR:
         ws.cell(row=r, column=24, value=f"=Q{r}")
         ws.cell(row=r, column=25, value=f"=Q{r}-X{r}")
-    elif y > m.WB_ANCHOR:
+    elif y > m.RN_ANCHOR:
         gg = f"({IN}$B$35+({IN}$B$36-{IN}$B$35)*(A{r}-2026)/24)"
         ws.cell(row=r, column=24,
                 value=f"=X{r-1}/C{r-1}*C{r}*(1+{gg})^{IN}$B$32"
@@ -1049,7 +1051,7 @@ A = [
   "consequential single parameter.",
   "Resolvable with data. The NMC removedStatus field records removals from the "
   "register and would allow this to be estimated rather than calibrated."),
- ("World Bank demand line: growth paths of its three drivers",
+ ("Revised projected need: growth paths of its three drivers",
   "ASSUMED, FOR STATE CONFIRMATION",
   "The elasticities are published (" + CITE_LIU + ", Table 1): 0.244 to real GDP "
   "per capita in the long run, -0.099 to out-of-pocket spending per capita, 0.516 to "
@@ -1203,15 +1205,15 @@ for i in range(2, end):
 
 # ------------------------------------------------------------- Methodology
 P += [
- ("Demand benchmark", "Income elasticity", "0.244 (0.231 + 0.531 - 0.518)",
+ ("Revised projected need", "Income elasticity", "0.244 (0.231 + 0.531 - 0.518)",
   "Table 1 of " + CITE_LIU),
- ("Demand benchmark", "Out-of-pocket elasticity", "-0.099", "Table 1, Liu et al. 2017"),
- ("Demand benchmark", "Population 65+ elasticity", "0.516", "Table 1, Liu et al. 2017"),
- ("Demand benchmark", "Real GSDP per capita growth", "6.5%/yr in 2026 easing to 4.0%/yr by 2050",
+ ("Revised projected need", "Out-of-pocket elasticity", "-0.099", "Table 1, Liu et al. 2017"),
+ ("Revised projected need", "Population 65+ elasticity", "0.516", "Table 1, Liu et al. 2017"),
+ ("Revised projected need", "Real GSDP per capita growth", "6.5%/yr in 2026 easing to 4.0%/yr by 2050",
   "ASSUMED, FOR STATE CONFIRMATION. Replace with the State's forecast."),
- ("Demand benchmark", "Growth of population aged 65+", "3.5%/yr",
+ ("Revised projected need", "Growth of population aged 65+", "3.5%/yr",
   "ASSUMED, FOR STATE CONFIRMATION. Replace with the NCP 2019 age tables."),
- ("Demand benchmark", "Anchor", "Modelled 2025 density, 19.6 per 10,000",
+ ("Revised projected need", "Anchor", "Modelled 2025 density, 19.6 per 10,000",
   "The paper's country fixed effect pins the level; the drivers move it from there."),
 ]
 ws = new_sheet("Methodology")
@@ -1222,7 +1224,7 @@ M = [
   " and in " + CITE_WHO_HLMA + " The same three-lens structure, Supply, Need and "
   "Demand, used in the Centre's Andhra Pradesh projection. This round builds the "
   "Supply lens for Tamil Nadu to 2050, sets it against the WHO need floor, and adds "
-  "the World Bank demand line from the same paper."),
+  "the revised projected need line, which is the demand side of the same paper."),
  ("Why not CAGR",
   "Growth forms were tested, not assumed. Comparing a levels-linear fit against a "
   "log-linear (CAGR) fit on a common scale, RMSE in seats, since a log model's "
@@ -1249,8 +1251,8 @@ M = [
   "grows at the NCP series' own 2021 to 2025 rate, 0.298% per year, held constant. "
   "Result: 77.32 million in 2025, 79.89 million in 2036, 83.29 million in 2050. The "
   "NCP plateau near 78 million is kept as an alternative path in the dashboard."),
- ("Module 6b, demand benchmark",
-  "Doctors the economy would absorb, on the demand model of Liu et al. 2017: "
+ ("Module 6b, revised projected need",
+  "A need line revised for the state's own economy, on the demand model of Liu et al. 2017: "
   "ln(physicians per 1,000) = -9.882 + 0.231 ln GDPpc(t-1) + 0.531 ln GDPpc(t-4) "
   "- 0.518 ln GDPpc(t-5) - 0.099 ln OOPpc(t-2) + 0.516 ln Pop65(t-3) + country effect, "
   "estimated by GLM with country fixed effects on 165 countries, 1990 to 2013. The "
@@ -1448,10 +1450,10 @@ P2 = [
   "Median of the 11 cadres where it could be observed"),
  ("EXTERNAL PUBLISHED SOURCE", "Population 2011 to 2025", "72.1M to 77.3M",
   CITE_NCP + " Used verbatim to 2025, 15 values"),
- ("EXTERNAL PUBLISHED SOURCE", "World Bank demand elasticities",
+ ("EXTERNAL PUBLISHED SOURCE", "Revised need elasticities",
   "0.244 income, -0.099 out-of-pocket, 0.516 population 65+",
   "Table 1 of " + CITE_LIU),
- ("ASSUMED BY US, FOR STATE CONFIRMATION", "World Bank demand driver paths",
+ ("ASSUMED BY US, FOR STATE CONFIRMATION", "Revised need driver paths",
   "GSDP per capita 6.5% easing to 4.0%; OOP share constant; 65+ population 3.5%/yr",
   "Our own. To be replaced by the State's GSDP forecast and the NCP 2019 age tables"),
  ("EXTERNAL PUBLISHED SOURCE", "WHO density norm", "44.5 per 10,000",
@@ -1576,7 +1578,7 @@ S = [
  ("Method reference", "Global Health Workforce Labor Market Projections for 2030",
   "Liu JX, Goryakin Y, Maeda A, Bruckner T, Scheffler RM", "2017",
   "The principal method reference: the supply, need and demand framework, and the "
-  "demand elasticities in Table 1 used for the World Bank demand line",
+  "demand elasticities in Table 1 used for the revised projected need line",
   CITE_LIU + " https://doi.org/10.1186/s12960-017-0187-2 ; working paper at "
   "https://documents1.worldbank.org/curated/en/546161470834083341/pdf/WPS7790.pdf",
   "Verified, coefficients read from Table 1"),

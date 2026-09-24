@@ -25,7 +25,7 @@ health at postgraduate level, on the same pipeline chain.
 
 WHO and World Bank Health Labour Market Framework. Supply is set against two
 benchmarks from the same framework: the WHO need floor (11.1 doctors per 10,000,
-a quarter of the 44.5 skilled health worker threshold) and the World Bank demand
+a quarter of the 44.5 skilled health worker threshold) and the revised projected need
 line, which rises with income, ageing and the move away from out-of-pocket
 payment using the published elasticities of Liu et al. (2017, Table 1): 0.244 to
 GDP per capita in the long run, -0.099 to out-of-pocket spending, 0.516 to the

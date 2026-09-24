@@ -125,20 +125,22 @@ class Params:
     # Need benchmark
     who_norm: float = 44.5
     who_doctor_share: float = 0.25
-    # World Bank demand benchmark. Liu, Goryakin, Maeda, Bruckner and
+    # Revised projected need: the demand side of the health labour market
+    # framework, which revises the flat WHO floor for what the state's own
+    # economy will support. Liu, Goryakin, Maeda, Bruckner and
     # Scheffler (2017), Table 1: elasticities of physician density to GDP per
     # capita (three lags, 0.231 + 0.531 - 0.518 = 0.244 in the long run),
     # out-of-pocket spending per capita (-0.099) and the population aged 65
-    # and over (0.516). Anchored on the modelled density in wb_anchor year.
+    # and over (0.516). Anchored on the modelled density in rn_anchor year.
     # The growth paths are our assumptions, marked as such on the dashboard.
-    wb_e_gdp: float = 0.231 + 0.531 - 0.518
-    wb_e_oop: float = -0.099
-    wb_e_pop65: float = 0.516
-    wb_gdp_g_2026: float = 0.065
-    wb_gdp_g_2050: float = 0.040
-    wb_oop_adj: float = 0.0
-    wb_pop65_g: float = 0.035
-    wb_anchor: int = 2025
+    rn_e_gdp: float = 0.231 + 0.531 - 0.518
+    rn_e_oop: float = -0.099
+    rn_e_pop65: float = 0.516
+    rn_gdp_g_2026: float = 0.065
+    rn_gdp_g_2050: float = 0.040
+    rn_oop_adj: float = 0.0
+    rn_pop65_g: float = 0.035
+    rn_anchor: int = 2025
 
     def to_dict(self):
         return asdict(self)
@@ -437,16 +439,16 @@ def run_doctors(p: Params, register: dict | None = None) -> dict:
 
     need = {y: pop[y] * p.who_norm * p.who_doctor_share / 10000.0 for y in years}
 
-    # World Bank demand, anchored on the modelled density in the anchor year
+    # Revised projected need, anchored on the modelled density in the anchor year
     wb = {y: None for y in years}
-    if p.wb_anchor in active:
-        dens = active[p.wb_anchor] / pop[p.wb_anchor] * 10000.0
-        wb[p.wb_anchor] = active[p.wb_anchor]
-        for y in range(p.wb_anchor + 1, p.end_year + 1):
+    if p.rn_anchor in active:
+        dens = active[p.rn_anchor] / pop[p.rn_anchor] * 10000.0
+        wb[p.rn_anchor] = active[p.rn_anchor]
+        for y in range(p.rn_anchor + 1, p.end_year + 1):
             yy = min(max(y, 2026), 2050)
-            gr = p.wb_gdp_g_2026 + (p.wb_gdp_g_2050 - p.wb_gdp_g_2026) * (yy - 2026) / 24.0
-            dens *= ((1 + gr) ** p.wb_e_gdp * (1 + gr + p.wb_oop_adj) ** p.wb_e_oop
-                     * (1 + p.wb_pop65_g) ** p.wb_e_pop65)
+            gr = p.rn_gdp_g_2026 + (p.rn_gdp_g_2050 - p.rn_gdp_g_2026) * (yy - 2026) / 24.0
+            dens *= ((1 + gr) ** p.rn_e_gdp * (1 + gr + p.rn_oop_adj) ** p.rn_e_oop
+                     * (1 + p.rn_pop65_g) ** p.rn_e_pop65)
             wb[y] = dens * pop[y] / 10000.0
     return dict(
         years=years, population=pop, gov_seats=g, pvt_seats=v,
@@ -456,8 +458,8 @@ def run_doctors(p: Params, register: dict | None = None) -> dict:
         active=active, density={y: active[y] / pop[y] * 10000 for y in years},
         specialists=spec, pg_output=sp_grads, specialist_exits=sp_exits,
         who_need=need, surplus={y: active[y] - need[y] for y in years},
-        wb_demand=wb,
-        wb_surplus={y: (active[y] - wb[y]) if wb[y] is not None else None for y in years},
+        revised_need=wb,
+        revised_surplus={y: (active[y] - wb[y]) if wb[y] is not None else None for y in years},
     )
 
 
